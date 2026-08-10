@@ -8,8 +8,11 @@ skip-lint = false
 [programs.localnet]
 bidlock = "23zkP27qb2eNg1nxKovh3zTLiLKXccKoRHRH6wukMYEs"
 
+[programs.devnet]
+bidlock = "23zkP27qb2eNg1nxKovh3zTLiLKXccKoRHRH6wukMYEs"
+
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
