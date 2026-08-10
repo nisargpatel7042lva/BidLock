@@ -20,7 +20,7 @@ function makeProgram(connection: Connection, wallet: any): Program<any> | null {
       signTransaction: wallet.signTransaction,
       signAllTransactions: wallet.signAllTransactions,
     },
-    { commitment: "confirmed" }
+    { commitment: "confirmed", preflightCommitment: "processed", skipPreflight: true }
   );
   return new Program<any>(IDL as any, provider);
 }

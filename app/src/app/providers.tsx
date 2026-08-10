@@ -14,7 +14,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
   return (
-    <ConnectionProvider endpoint={ENDPOINT}>
+    <ConnectionProvider endpoint={ENDPOINT} config={{ confirmTransactionInitialTimeout: 120_000 }}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>

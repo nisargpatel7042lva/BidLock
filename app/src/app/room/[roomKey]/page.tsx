@@ -138,7 +138,7 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
       await (program as any).methods
         .createSession(sessionKp.publicKey, validUntil)
         .accounts({ member: publicKey, room: roomPubkey })
-        .rpc({ commitment: "confirmed" });
+        .rpc({ commitment: "confirmed", skipPreflight: true });
       setSessionReady(true);
     } catch (e: any) {
       // If it already exists (race), treat as success
@@ -160,7 +160,7 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
       await (program as any).methods
         .openSubmission()
         .accounts({ room: roomPubkey })
-        .rpc({ commitment: "confirmed" });
+        .rpc({ commitment: "confirmed", skipPreflight: true });
       setActionMsg("Sealing window is now open — share the room URL with your group.");
       await fetchRoom();
     } catch (e: any) {
@@ -223,7 +223,7 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
       await (program as any).methods
         .revealBid(new BN(stored.amount), stored.salt)
         .accounts({ member: publicKey, room: roomPubkey })
-        .rpc({ commitment: "confirmed" });
+        .rpc({ commitment: "confirmed", skipPreflight: true });
       setActionMsg("Proposal revealed successfully.");
       await fetchRoom();
     } catch (e: any) {
@@ -241,7 +241,7 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
       await (program as any).methods
         .delegateRoomForSettlement(room.roomId)
         .accounts({ payer: publicKey, pda: roomPubkey })
-        .rpc({ commitment: "confirmed" });
+        .rpc({ commitment: "confirmed", skipPreflight: true });
       setActionMsg("Computing result on ER… click 'Commit to Chain' once done.");
       setTimeout(fetchRoom, 6000);
     } catch (e: any) {

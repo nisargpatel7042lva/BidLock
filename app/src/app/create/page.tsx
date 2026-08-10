@@ -87,7 +87,7 @@ export default function CreatePage() {
       await p.methods
         .createRoom(roomId, description.trim(), allMembers, submissionDeadline, revealDeadline)
         .accounts({ creator: publicKey })
-        .rpc({ commitment: "confirmed" });
+        .rpc({ commitment: "confirmed", skipPreflight: true });
 
       const pda = roomPda(publicKey, roomId);
 
@@ -97,7 +97,7 @@ export default function CreatePage() {
       await p.methods
         .openSubmission()
         .accounts({ room: pda })
-        .rpc({ commitment: "confirmed" });
+        .rpc({ commitment: "confirmed", skipPreflight: true });
 
       setRoomAddr(pda.toBase58());
       setStatus("done");
