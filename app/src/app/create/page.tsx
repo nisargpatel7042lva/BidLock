@@ -88,7 +88,17 @@ export default function CreatePage() {
         .createRoom(roomId, description.trim(), allMembers, submissionDeadline, revealDeadline)
         .accounts({ creator: publicKey })
         .rpc({ commitment: "confirmed" });
+
       const pda = roomPda(publicKey, roomId);
+
+      // Open the sealing window immediately so members can start sealing.
+      // On localnet this runs directly; on devnet the ER delegate_room flow
+      // fires open_submission as a magic action instead.
+      await p.methods
+        .openSubmission()
+        .accounts({ room: pda })
+        .rpc({ commitment: "confirmed" });
+
       setRoomAddr(pda.toBase58());
       setStatus("done");
     } catch (e: any) {

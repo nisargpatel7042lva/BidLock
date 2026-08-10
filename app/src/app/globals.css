@@ -344,17 +344,94 @@ input, textarea, select {
 .lp-spin-reverse { animation: lp-spin-reverse 60s linear infinite; }
 
 /* ─── Wallet adapter ─────────────────────────────────────────────────── */
-.wallet-adapter-button { display: none !important; }
+
+/* Skeleton while the dynamic import loads */
+.wallet-btn-skeleton {
+  display: inline-block;
+  width: 130px;
+  height: 36px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+}
+
+/* ── Main trigger button (disconnected = "Connect Wallet", connected = address) */
+.bidlock-wallet-btn.wallet-adapter-button {
+  background: #C9A44A !important;
+  color: #06040A !important;
+  font-family: var(--font-mono), monospace !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  border-radius: 4px !important;
+  padding: 10px 20px !important;
+  height: auto !important;
+  line-height: 1 !important;
+  border: none !important;
+  transition: background 0.15s !important;
+}
+.bidlock-wallet-btn.wallet-adapter-button:hover {
+  background: #EDD068 !important;
+}
+/* Hide wallet icon inside our button — we don't need it */
+.bidlock-wallet-btn.wallet-adapter-button .wallet-adapter-button-start-icon {
+  display: none !important;
+}
+
+/* Connected state — show address in ghost style */
+.bidlock-wallet-btn.wallet-adapter-button-trigger {
+  background: transparent !important;
+  color: rgba(255,255,255,0.55) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+}
+.bidlock-wallet-btn.wallet-adapter-button-trigger:hover {
+  background: rgba(255,255,255,0.04) !important;
+  color: #fff !important;
+}
+
+/* ── Dropdown (when connected, clicking shows copy/disconnect) */
+.wallet-adapter-dropdown-list {
+  background: #111 !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 10px !important;
+  z-index: 9999 !important;
+}
+.wallet-adapter-dropdown-list-item {
+  font-family: var(--font-mono), monospace !important;
+  font-size: 11px !important;
+  color: rgba(255,255,255,0.7) !important;
+  background: transparent !important;
+}
+.wallet-adapter-dropdown-list-item:hover {
+  background: rgba(255,255,255,0.06) !important;
+  color: #fff !important;
+}
+
+/* ── Modal (wallet picker when disconnected) */
 .wallet-adapter-modal-wrapper {
-  background: var(--surface) !important;
-  border: 1px solid var(--border-lit) !important;
-  border-radius: 0 !important;
+  background: #0d0d0d !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 16px !important;
 }
 .wallet-adapter-modal-title {
   font-family: var(--font-display), Georgia, serif !important;
-  color: var(--text) !important;
+  color: #fff !important;
   font-weight: 500 !important;
+  font-size: 20px !important;
 }
-.wallet-adapter-button-trigger {
-  display: none !important;
+/* Wallet list items inside modal */
+.wallet-adapter-modal-list .wallet-adapter-button {
+  background: rgba(255,255,255,0.04) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+}
+.wallet-adapter-modal-list .wallet-adapter-button:hover {
+  background: rgba(255,255,255,0.08) !important;
+}
+/* Ensure modal sits above fixed nav (z-index: 50) and canvas */
+.wallet-adapter-modal {
+  z-index: 9000 !important;
 }
