@@ -40,7 +40,7 @@ export default function RootLayout({
       lang="en"
       className={`${cormorant.variable} ${jetbrains.variable} ${outfit.variable}`}
     >
-      <body style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <body suppressHydrationWarning style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         <Providers>{children}</Providers>
       </body>
     </html>

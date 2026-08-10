@@ -236,11 +236,12 @@ function HeroSection() {
         <motion.div className="liquid-glass" style={{ borderRadius: 999, padding: "8px 8px 8px 20px", display: "flex", alignItems: "center", gap: 10, maxWidth: 440, width: "100%", marginBottom: 14 }}
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.58 }}>
           <input
+            suppressHydrationWarning
             type="text" placeholder="Paste room address to join…"
             value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && input.trim().length > 20) router.push(`/room/${input.trim()}`); }}
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 14, color: "#fff", fontFamily: "inherit" }} />
-          <button onClick={() => { if (input.trim().length > 20) router.push(`/room/${input.trim()}`); }}
+          <button suppressHydrationWarning onClick={() => { if (input.trim().length > 20) router.push(`/room/${input.trim()}`); }}
             style={{ background: "#fff", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", border: "none", cursor: "pointer", flexShrink: 0 }}>
             <ArrowRight size={16} color="#000" strokeWidth={2} />
           </button>
@@ -421,7 +422,7 @@ function RevealSVG() {
       <motion.circle cx="22" cy="22" r="13" stroke="#3ECECE" strokeWidth="1.4" strokeDasharray="4 3"
         animate={{ rotate: 360 }} transition={{ duration: 12, repeat: Infinity, ease: "linear" }} />
       {[0,60,120,180,240,300].map((a, i) => (
-        <motion.line key={i} x1="22" y1="22" x2={22+9*Math.cos(a*Math.PI/180)} y2={22+9*Math.sin(a*Math.PI/180)}
+        <motion.line suppressHydrationWarning key={i} x1="22" y1="22" x2={22+9*Math.cos(a*Math.PI/180)} y2={22+9*Math.sin(a*Math.PI/180)}
           stroke="#3ECECE" strokeWidth="1.4" strokeLinecap="round"
           initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1*i+0.4 }} />
       ))}
@@ -659,7 +660,7 @@ function CTASection() {
         <motion.div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 28 }}
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }} transition={{ duration: 0.7, delay: 0.3 }}>
           <div className="liquid-glass" style={{ borderRadius: 999, padding: "9px 9px 9px 18px", display: "flex", alignItems: "center", gap: 8, flex: "1 1 220px", maxWidth: 340 }}>
-            <input type="text" placeholder="Paste a room address…" value={room} onChange={e => setRoom(e.target.value)}
+            <input suppressHydrationWarning type="text" placeholder="Paste a room address…" value={room} onChange={e => setRoom(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && room.trim()) router.push(`/room/${room.trim()}`); }}
               style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 13, color: "#fff", fontFamily: "inherit" }} />
           </div>
