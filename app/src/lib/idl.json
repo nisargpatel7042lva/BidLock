@@ -1,0 +1,1512 @@
+{
+  "address": "23zkP27qb2eNg1nxKovh3zTLiLKXccKoRHRH6wukMYEs",
+  "metadata": {
+    "name": "bidlock",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "create_room",
+      "docs": [
+        "Creates a Sealed Consensus Split room: a fixed group of members who will",
+        "each privately submit a proposed split of a shared pool, sealed until",
+        "every member has committed, then resolved into one agreed outcome."
+      ],
+      "discriminator": [
+        130,
+        166,
+        32,
+        2,
+        247,
+        120,
+        178,
+        53
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "room",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  111,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "room_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "room_id",
+          "type": "u64"
+        },
+        {
+          "name": "pool_description",
+          "type": "string"
+        },
+        {
+          "name": "members",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "submission_deadline",
+          "type": "i64"
+        },
+        {
+          "name": "reveal_deadline",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "create_session",
+      "docs": [
+        "Creates a per-room session token so the caller can sign `submit_bid`",
+        "inside the ER with a lightweight session key instead of their main",
+        "wallet. The session is strictly scoped to one room — it will be",
+        "rejected by any instruction that acts on a different room."
+      ],
+      "discriminator": [
+        242,
+        193,
+        143,
+        179,
+        150,
+        25,
+        122,
+        227
+      ],
+      "accounts": [
+        {
+          "name": "member",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "room",
+          "docs": [
+            "UncheckedAccount avoids the owner constraint that would fire when the",
+            "room is delegated (owner becomes the delegation program). We verify",
+            "membership by deserializing the raw bytes manually."
+          ]
+        },
+        {
+          "name": "room_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  111,
+                  109,
+                  95,
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "room"
+              },
+              {
+                "kind": "account",
+                "path": "member"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "session_key",
+          "type": "pubkey"
+        },
+        {
+          "name": "valid_until",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "delegate_room",
+      "docs": [
+        "Delegates a room to the Ephemeral Rollup, attaching a post-delegation",
+        "action that auto-opens submissions the instant delegation lands."
+      ],
+      "discriminator": [
+        39,
+        6,
+        122,
+        70,
+        65,
+        76,
+        166,
+        26
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true
+        },
+        {
+          "name": "buffer_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                15,
+                160,
+                36,
+                242,
+                229,
+                200,
+                176,
+                127,
+                198,
+                17,
+                82,
+                87,
+                46,
+                63,
+                92,
+                174,
+                238,
+                27,
+                106,
+                235,
+                118,
+                24,
+                77,
+                208,
+                75,
+                53,
+                143,
+                103,
+                71,
+                206,
+                97,
+                208
+              ]
+            }
+          }
+        },
+        {
+          "name": "delegation_record_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "delegation_metadata_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "pda",
+          "writable": true
+        },
+        {
+          "name": "owner_program",
+          "address": "23zkP27qb2eNg1nxKovh3zTLiLKXccKoRHRH6wukMYEs"
+        },
+        {
+          "name": "delegation_program",
+          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "room_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "delegate_room_for_settlement",
+      "docs": [
+        "Delegates the room back to the ER for settlement and attaches",
+        "`resolve_room` as a post-delegation magic action. Call this on the base",
+        "layer after all reveals are in and the reveal deadline has passed."
+      ],
+      "discriminator": [
+        25,
+        152,
+        134,
+        68,
+        44,
+        56,
+        106,
+        62
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true
+        },
+        {
+          "name": "buffer_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                15,
+                160,
+                36,
+                242,
+                229,
+                200,
+                176,
+                127,
+                198,
+                17,
+                82,
+                87,
+                46,
+                63,
+                92,
+                174,
+                238,
+                27,
+                106,
+                235,
+                118,
+                24,
+                77,
+                208,
+                75,
+                53,
+                143,
+                103,
+                71,
+                206,
+                97,
+                208
+              ]
+            }
+          }
+        },
+        {
+          "name": "delegation_record_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "delegation_metadata_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "pda",
+          "writable": true
+        },
+        {
+          "name": "owner_program",
+          "address": "23zkP27qb2eNg1nxKovh3zTLiLKXccKoRHRH6wukMYEs"
+        },
+        {
+          "name": "delegation_program",
+          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "room_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "delegate_room_for_settlement_private",
+      "docs": [
+        "Delegates the room to the PER for private settlement. Attaches",
+        "`resolve_room_private` as the post-delegation magic action with all",
+        "BidStore PDAs included. Call after the submission deadline has passed."
+      ],
+      "discriminator": [
+        199,
+        191,
+        106,
+        153,
+        2,
+        115,
+        147,
+        195
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true
+        },
+        {
+          "name": "buffer_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                15,
+                160,
+                36,
+                242,
+                229,
+                200,
+                176,
+                127,
+                198,
+                17,
+                82,
+                87,
+                46,
+                63,
+                92,
+                174,
+                238,
+                27,
+                106,
+                235,
+                118,
+                24,
+                77,
+                208,
+                75,
+                53,
+                143,
+                103,
+                71,
+                206,
+                97,
+                208
+              ]
+            }
+          }
+        },
+        {
+          "name": "delegation_record_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "delegation_metadata_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "pda",
+          "writable": true
+        },
+        {
+          "name": "owner_program",
+          "address": "23zkP27qb2eNg1nxKovh3zTLiLKXccKoRHRH6wukMYEs"
+        },
+        {
+          "name": "delegation_program",
+          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "room_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "open_submission",
+      "docs": [
+        "Post-delegation action: flips a freshly delegated room straight to",
+        "`SubmissionOpen`. Not meant to be called directly by clients."
+      ],
+      "discriminator": [
+        17,
+        176,
+        15,
+        162,
+        7,
+        54,
+        186,
+        138
+      ],
+      "accounts": [
+        {
+          "name": "room",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "process_undelegation",
+      "discriminator": [
+        196,
+        28,
+        41,
+        206,
+        48,
+        37,
+        51,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "base_account",
+          "writable": true
+        },
+        {
+          "name": "buffer",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  110,
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  101,
+                  45,
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "base_account"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                181,
+                183,
+                0,
+                225,
+                242,
+                87,
+                58,
+                192,
+                204,
+                6,
+                34,
+                1,
+                52,
+                74,
+                207,
+                151,
+                184,
+                53,
+                6,
+                235,
+                140,
+                229,
+                25,
+                152,
+                204,
+                98,
+                126,
+                24,
+                147,
+                128,
+                167,
+                62
+              ]
+            }
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "account_seeds",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "resolve_room",
+      "docs": [
+        "Post-delegation magic action: computes the winner from valid reveals,",
+        "records their share in `resolved_split`, then erases all reveal amounts",
+        "so no losing bid quantities land on the base layer. Runs automatically",
+        "inside the ER when fired by `delegate_room_for_settlement`."
+      ],
+      "discriminator": [
+        168,
+        135,
+        180,
+        146,
+        219,
+        38,
+        33,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "room",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolve_room_private",
+      "docs": [
+        "Post-delegation magic action for the PER private flow. Reads all",
+        "per-member BidStore accounts (remaining_accounts) as program owner,",
+        "picks the highest bid, records the winner in resolved_split, then",
+        "zeroes every BidStore amount so no bid quantity lands on the base layer."
+      ],
+      "discriminator": [
+        250,
+        245,
+        153,
+        187,
+        79,
+        222,
+        181,
+        61
+      ],
+      "accounts": [
+        {
+          "name": "room",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reveal_bid",
+      "docs": [
+        "Opens a member's sealed commitment after the submission window closes.",
+        "The program recomputes sha256(amount_le || salt) and compares it to the",
+        "stored hash. Matching reveals are marked valid; mismatched reveals are",
+        "recorded as invalid and excluded from winner resolution."
+      ],
+      "discriminator": [
+        48,
+        73,
+        28,
+        255,
+        202,
+        126,
+        236,
+        196
+      ],
+      "accounts": [
+        {
+          "name": "member",
+          "docs": [
+            "Must be the member's main wallet — session keys are not accepted for",
+            "reveals, which happen on the base layer after the ER is wound down."
+          ],
+          "signer": true
+        },
+        {
+          "name": "room",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "salt",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "submit_bid",
+      "docs": [
+        "Stores a sealed commitment (sha256(split_bps || salt)) from a member",
+        "inside the ER. The signer may be the member's main wallet, or a",
+        "room-scoped session key previously authorized via `create_session`."
+      ],
+      "discriminator": [
+        19,
+        164,
+        237,
+        254,
+        64,
+        139,
+        237,
+        93
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "docs": [
+            "Either the member's main wallet, or a session key that was authorized",
+            "via `create_session`. The handler resolves which role applies."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "room",
+          "docs": [
+            "The delegated room, held in the Ephemeral Rollup during SubmissionOpen."
+          ],
+          "writable": true
+        },
+        {
+          "name": "room_session",
+          "docs": [
+            "Present when the caller is using a session key instead of their main",
+            "wallet. The handler validates that the session is scoped to *this* room",
+            "and has not expired — a session for a different room is rejected."
+          ],
+          "optional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "submit_bid_private",
+      "docs": [
+        "Stores a member's plaintext bid amount inside a private per-member",
+        "ephemeral BidStore account in the PER. The EphemeralPermission restricts",
+        "RPC reads to the member only; the resolving program bypasses this as the",
+        "account owner. No commitment hash is needed — privacy is enforced by the",
+        "PER validator, not by cryptographic hiding."
+      ],
+      "discriminator": [
+        202,
+        53,
+        30,
+        86,
+        125,
+        76,
+        168,
+        176
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "docs": [
+            "Bidder's session key (or main wallet)."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "room",
+          "docs": [
+            "The delegated room in the PER."
+          ],
+          "writable": true
+        },
+        {
+          "name": "room_session",
+          "docs": [
+            "Optional room-scoped session token (same auth as submit_bid)."
+          ],
+          "optional": true
+        },
+        {
+          "name": "bid_store",
+          "docs": [
+            "Per-member ephemeral BidStore to be created: [\"bid_store\", room, member].",
+            "Lives only inside the PER — never committed to the base layer."
+          ],
+          "writable": true
+        },
+        {
+          "name": "permission",
+          "docs": [
+            "EphemeralPermission PDA for bid_store: [\"permission:\", bid_store].",
+            "Restricts RPC reads of bid_store to the member only (is_private = true)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "Ephemeral rent vault — must be EPHEMERAL_VAULT_ID."
+          ],
+          "writable": true
+        },
+        {
+          "name": "magic_program",
+          "docs": [
+            "Magic Program that manages ephemeral account creation."
+          ]
+        },
+        {
+          "name": "permission_program",
+          "docs": [
+            "Permission Program that enforces PER access control."
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "undelegate_room",
+      "docs": [
+        "Commits the room's final ER state back to the base layer and",
+        "undelegates it."
+      ],
+      "discriminator": [
+        151,
+        179,
+        196,
+        11,
+        39,
+        232,
+        174,
+        131
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "room",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  111,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              },
+              {
+                "kind": "arg",
+                "path": "room_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "magic_program",
+          "address": "Magic11111111111111111111111111111111111111"
+        },
+        {
+          "name": "magic_context",
+          "writable": true,
+          "address": "MagicContext1111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "room_id",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Room",
+      "discriminator": [
+        156,
+        199,
+        67,
+        27,
+        222,
+        23,
+        185,
+        94
+      ]
+    },
+    {
+      "name": "RoomSession",
+      "discriminator": [
+        95,
+        196,
+        110,
+        218,
+        229,
+        142,
+        5,
+        172
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "DescriptionTooLong",
+      "msg": "Pool description exceeds the maximum allowed length"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidMemberCount",
+      "msg": "A room must have between 1 and MAX_MEMBERS members"
+    },
+    {
+      "code": 6002,
+      "name": "DuplicateMember",
+      "msg": "Member pubkeys must be unique"
+    },
+    {
+      "code": 6003,
+      "name": "SubmissionDeadlineInPast",
+      "msg": "Submission deadline must be in the future"
+    },
+    {
+      "code": 6004,
+      "name": "RevealBeforeSubmission",
+      "msg": "Reveal deadline must be after the submission deadline"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidRoomStatus",
+      "msg": "Room must be in the Created status for this operation"
+    },
+    {
+      "code": 6006,
+      "name": "NotAMember",
+      "msg": "Caller is not a member of this room"
+    },
+    {
+      "code": 6007,
+      "name": "SubmissionClosed",
+      "msg": "The submission window is not open"
+    },
+    {
+      "code": 6008,
+      "name": "AlreadySubmitted",
+      "msg": "This member has already submitted a commitment"
+    },
+    {
+      "code": 6009,
+      "name": "SessionExpired",
+      "msg": "Session key has expired"
+    },
+    {
+      "code": 6010,
+      "name": "SessionRoomMismatch",
+      "msg": "Session token is not scoped to this room"
+    },
+    {
+      "code": 6011,
+      "name": "SessionKeyMismatch",
+      "msg": "Transaction signer does not match the session key on this token"
+    },
+    {
+      "code": 6012,
+      "name": "RevealNotOpen",
+      "msg": "The reveal window is not open yet (submission deadline has not passed)"
+    },
+    {
+      "code": 6013,
+      "name": "RevealExpired",
+      "msg": "The reveal window has expired"
+    },
+    {
+      "code": 6014,
+      "name": "AlreadyRevealed",
+      "msg": "This member has already revealed their bid"
+    },
+    {
+      "code": 6015,
+      "name": "CommitmentNotFound",
+      "msg": "No commitment found for this member (did not submit a bid)"
+    },
+    {
+      "code": 6016,
+      "name": "RevealWindowNotClosed",
+      "msg": "Reveal deadline has not passed yet — settlement cannot begin"
+    },
+    {
+      "code": 6017,
+      "name": "NoValidReveals",
+      "msg": "No valid reveals — cannot determine a winner"
+    },
+    {
+      "code": 6018,
+      "name": "AlreadyResolved",
+      "msg": "Room is already resolved"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidProgramAccount",
+      "msg": "Account address does not match the expected program account"
+    }
+  ],
+  "types": [
+    {
+      "name": "MemberCommitment",
+      "docs": [
+        "A sealed commitment from one member: sha256(proposed_split_bytes || salt).",
+        "32 bytes so it fits a SHA-256 digest exactly."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "member",
+            "type": "pubkey"
+          },
+          {
+            "name": "commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "MemberReveal",
+      "docs": [
+        "The result of a member's reveal attempt. `valid` is true only when the",
+        "recomputed sha256(amount_le || salt) matched the stored commitment.",
+        "Invalid reveals store `amount = 0` to avoid leaking a mismatched attempt."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "member",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "valid",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MemberSplit",
+      "docs": [
+        "One member's final share of the pool, in basis points (sums to",
+        "BPS_DENOMINATOR across a room's full `resolved_split`)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "member",
+            "type": "pubkey"
+          },
+          {
+            "name": "share_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Room",
+      "docs": [
+        "A shared pool that a fixed group of members will split by Sealed Consensus:",
+        "every member privately submits what they believe a fair share is, and once",
+        "all reveals land the program normalizes them into one agreed outcome.",
+        "No individual winner or loser — just one shared, sealed-then-revealed result."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "room_id",
+            "type": "u64"
+          },
+          {
+            "name": "pool_description",
+            "type": "string"
+          },
+          {
+            "name": "members",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "submission_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "reveal_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "RoomStatus"
+              }
+            }
+          },
+          {
+            "name": "submissions",
+            "docs": [
+              "Sealed commitments from each member: sha256(split_bps_array || salt).",
+              "Accumulated inside the ER during SubmissionOpen; committed to base layer",
+              "on undelegate so the reveal phase has a tamper-evident record."
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "MemberCommitment"
+                }
+              }
+            }
+          },
+          {
+            "name": "reveals",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "MemberReveal"
+                }
+              }
+            }
+          },
+          {
+            "name": "resolved_split",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "MemberSplit"
+                }
+              }
+            }
+          },
+          {
+            "name": "private_submitters",
+            "docs": [
+              "Members who have submitted via the PER private flow (`submit_bid_private`).",
+              "Their plaintext bid amounts live in per-member ephemeral BidStore accounts",
+              "inside the ER and never touch the base layer."
+            ],
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoomSession",
+      "docs": [
+        "A per-room, per-member session token. Created on the base layer by the",
+        "member's main wallet; the room-scoped session key can then sign `submit_bid`",
+        "inside the ER without the main wallet being present.",
+        "",
+        "Scoping is enforced by including the room pubkey in the PDA seeds — a",
+        "session created for room A cannot satisfy the `room_session` constraint",
+        "on room B, even if the same member key appears in both rooms."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "room",
+            "type": "pubkey"
+          },
+          {
+            "name": "member",
+            "type": "pubkey"
+          },
+          {
+            "name": "session_key",
+            "type": "pubkey"
+          },
+          {
+            "name": "valid_until",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoomStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Created"
+          },
+          {
+            "name": "SubmissionOpen"
+          },
+          {
+            "name": "RevealOpen"
+          },
+          {
+            "name": "Resolved"
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    {
+      "name": "BID_STORE_SEED",
+      "docs": [
+        "Seeds for per-member private bid stores in the PER.",
+        "PDA: [\"bid_store\", room, member] — ephemeral, never committed to base layer."
+      ],
+      "type": "string",
+      "value": "\"bid_store\""
+    },
+    {
+      "name": "ROOM_SEED",
+      "type": "string",
+      "value": "\"room\""
+    },
+    {
+      "name": "ROOM_SESSION_SEED",
+      "type": "string",
+      "value": "\"room_session\""
+    }
+  ]
+}

@@ -1,34 +1,46 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Cormorant_Garamond, JetBrains_Mono, Outfit } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrains = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
+});
+
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "BidLock",
-  description: "Sealed-bid auctions on Solana, powered by MagicBlock Ephemeral Rollups.",
+  title: "BidLock — Seal. Reveal. Converge.",
+  description:
+    "Groups reach a fair shared decision by sealing their honest input first, so no one anchors on anyone else, then converging together, live, on Solana.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${cormorant.variable} ${jetbrains.variable} ${outfit.variable}`}
     >
-      <body className="min-h-full flex flex-col">
+      <body style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         <Providers>{children}</Providers>
       </body>
     </html>
