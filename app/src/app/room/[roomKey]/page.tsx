@@ -5,10 +5,9 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
-import { useProgram } from "@/lib/program";
+import { useProgram, useERProgram, getDelegationStatus, makeERProgramAtFqdn } from "@/lib/program";
 import { sessionPda, shortenAddress, PROGRAM_ID } from "@/lib/pda";
 import { getOrCreateSessionKey, storeProposal, getProposal } from "@/lib/session";
 import { computeCommitment, randomSalt } from "@/lib/commitment";
@@ -47,9 +46,10 @@ export default function RoomPage({
   params: Promise<{ roomKey: string }>;
 }) {
   const { roomKey } = use(params);
-  const { publicKey, connected } = useWallet();
-  const { connection } = useConnection();
-  const program = useProgram();
+  const wallet    = useWallet();
+  const { publicKey, connected } = wallet;
+  const program   = useProgram();
+  const erProgram = useERProgram();
 
   const [room, setRoom]             = useState<RoomAccount | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -116,21 +116,36 @@ export default function RoomPage({
     })();
   }, [connected, publicKey, room, program, sessionReady, roomKey, roomPubkey]);
 
-  /* ── Seal proposal ──────────────────────────────────────────────── */
+  /* ── Seal proposal — routed through MagicBlock ER ──────────────────── */
   const handleSeal = useCallback(async (amountStr: string) => {
-    if (!program || !publicKey || !room || !roomPubkey) throw new Error("Wallet not connected.");
+    if (!publicKey || !room || !roomPubkey) throw new Error("Wallet not connected.");
 
     const amount = BigInt(amountStr);
     const salt   = randomSalt();
     const commitment = await computeCommitment(amount, salt);
 
-    const sessionKp  = getOrCreateSessionKey(roomKey);
+    const sessionKp     = getOrCreateSessionKey(roomKey);
     const sessionPdaKey = sessionPda(roomPubkey, publicKey);
 
     storeProposal(roomKey, amountStr, Array.from(salt));
 
+    // Resolve live ER fqdn via MagicBlock router; fall back to default ER endpoint.
+    let submitProgram: any;
     try {
-      await (program as any).methods
+      const { isDelegated, fqdn } = await getDelegationStatus(roomPubkey);
+      if (isDelegated && fqdn) {
+        submitProgram = makeERProgramAtFqdn(fqdn, wallet) ?? erProgram;
+      } else {
+        submitProgram = erProgram;
+      }
+    } catch {
+      submitProgram = erProgram;
+    }
+
+    if (!submitProgram) throw new Error("ER connection unavailable.");
+
+    try {
+      await (submitProgram as any).methods
         .submitBid(Array.from(commitment))
         .accounts({
           signer: sessionKp.publicKey,
@@ -138,13 +153,14 @@ export default function RoomPage({
           roomSession: sessionPdaKey,
         })
         .signers([sessionKp])
-        .rpc({ commitment: "confirmed" });
+        // skipPreflight is required for all ER transactions
+        .rpc({ commitment: "confirmed", skipPreflight: true });
     } catch (e) {
       throw new Error(friendlyError(e));
     }
 
     await fetchRoom();
-  }, [program, publicKey, room, roomPubkey, roomKey, fetchRoom]);
+  }, [publicKey, room, roomPubkey, roomKey, fetchRoom, erProgram, wallet]);
 
   /* ── Reveal proposal ────────────────────────────────────────────── */
   const handleReveal = useCallback(async () => {
@@ -168,7 +184,7 @@ export default function RoomPage({
     }
   }, [program, publicKey, roomPubkey, roomKey, fetchRoom]);
 
-  /* ── Delegate for settlement ────────────────────────────────────── */
+  /* ── Delegate for settlement — base layer tx ────────────────────── */
   const handleSettle = useCallback(async () => {
     if (!program || !publicKey || !room || !roomPubkey) return;
 
@@ -176,11 +192,12 @@ export default function RoomPage({
     setActionErr("");
     try {
       const roomId = room.roomId;
+      // pda = the room PDA; delegation_program & friends are resolved by Anchor
       await (program as any).methods
         .delegateRoomForSettlement(roomId)
-        .accounts({ payer: publicKey })
+        .accounts({ payer: publicKey, pda: roomPubkey })
         .rpc({ commitment: "confirmed" });
-      setActionMsg("Settlement triggered. Waiting for convergence…");
+      setActionMsg("Delegated to ER — resolve_room magic action will fire automatically. Click 'Commit to Chain' when ready.");
       setTimeout(fetchRoom, 6000);
     } catch (e: any) {
       setActionErr(friendlyError(e));
@@ -189,18 +206,36 @@ export default function RoomPage({
     }
   }, [program, publicKey, room, roomPubkey, fetchRoom]);
 
-  /* ── Undelegate ─────────────────────────────────────────────────── */
+  /* ── Commit + undelegate — ER tx ────────────────────────────────── */
   const handleUndelegate = useCallback(async () => {
-    if (!program || !publicKey || !room || !roomPubkey) return;
+    if (!publicKey || !room || !roomPubkey) return;
 
     setActionBusy(true);
     setActionErr("");
     try {
       const roomId = room.roomId;
-      await (program as any).methods
+
+      // Resolve live ER fqdn via router for the delegated room account
+      let undelegateProgram: any;
+      try {
+        const { isDelegated, fqdn } = await getDelegationStatus(roomPubkey);
+        if (isDelegated && fqdn) {
+          undelegateProgram = makeERProgramAtFqdn(fqdn, wallet) ?? erProgram;
+        } else {
+          undelegateProgram = erProgram;
+        }
+      } catch {
+        undelegateProgram = erProgram;
+      }
+
+      if (!undelegateProgram) { setActionErr("ER connection unavailable."); return; }
+
+      await (undelegateProgram as any).methods
         .undelegateRoom(roomId)
-        .accounts({ payer: publicKey })
-        .rpc({ commitment: "confirmed" });
+        .accounts({ payer: publicKey, room: roomPubkey })
+        // skipPreflight required for all ER commit/undelegate transactions
+        .rpc({ commitment: "confirmed", skipPreflight: true });
+
       setActionMsg("Room converged on base layer.");
       await fetchRoom();
     } catch (e: any) {
@@ -208,7 +243,7 @@ export default function RoomPage({
     } finally {
       setActionBusy(false);
     }
-  }, [program, publicKey, room, roomPubkey, fetchRoom]);
+  }, [publicKey, room, roomPubkey, fetchRoom, erProgram, wallet]);
 
   /* ── Render helpers ─────────────────────────────────────────────── */
   const memberKey  = publicKey?.toBase58();
