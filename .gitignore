@@ -1,0 +1,18 @@
+# Read-only study material — cloned reference repos, not part of BidLock itself.
+reference/
+
+# Anchor / Rust
+bidlock/target/
+bidlock/.anchor/
+**/*.so
+
+# Node
+node_modules/
+.next/
+app/.next/
+yarn-error.log
+
+# Local validator / MagicBlock stack artifacts
+magicblock-test-storage/
+test-ledger/
+*.log
