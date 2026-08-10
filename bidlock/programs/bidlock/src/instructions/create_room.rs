@@ -65,6 +65,7 @@ pub(crate) fn handler(
     room.submissions = Vec::new();
     room.reveals = Vec::new();
     room.resolved_split = Vec::new();
+    room.private_submitters = Vec::new();
     room.bump = ctx.bumps.room;
 
     Ok(())

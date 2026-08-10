@@ -100,4 +100,36 @@ pub mod bidlock {
     ) -> Result<()> {
         delegate_room_for_settlement::handler(ctx, room_id)
     }
+
+    // ── PER private-bid flow (Phase 7) ────────────────────────────────────────
+
+    /// Stores a member's plaintext bid amount inside a private per-member
+    /// ephemeral BidStore account in the PER. The EphemeralPermission restricts
+    /// RPC reads to the member only; the resolving program bypasses this as the
+    /// account owner. No commitment hash is needed — privacy is enforced by the
+    /// PER validator, not by cryptographic hiding.
+    pub fn submit_bid_private(
+        ctx: Context<SubmitBidPrivate>,
+        amount: u64,
+    ) -> Result<()> {
+        submit_bid_private::handler(ctx, amount)
+    }
+
+    /// Post-delegation magic action for the PER private flow. Reads all
+    /// per-member BidStore accounts (remaining_accounts) as program owner,
+    /// picks the highest bid, records the winner in resolved_split, then
+    /// zeroes every BidStore amount so no bid quantity lands on the base layer.
+    pub fn resolve_room_private(ctx: Context<ResolveRoomPrivate>) -> Result<()> {
+        resolve_room_private::handler(ctx)
+    }
+
+    /// Delegates the room to the PER for private settlement. Attaches
+    /// `resolve_room_private` as the post-delegation magic action with all
+    /// BidStore PDAs included. Call after the submission deadline has passed.
+    pub fn delegate_room_for_settlement_private(
+        ctx: Context<DelegateRoomForSettlementPrivate>,
+        room_id: u64,
+    ) -> Result<()> {
+        delegate_room_for_settlement_private::handler(ctx, room_id)
+    }
 }

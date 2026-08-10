@@ -6,7 +6,8 @@
     "test:delegation": "ts-mocha -p ./tsconfig.json -t 1000000 tests/test_delegate_room.ts",
     "test:session": "ts-mocha -p ./tsconfig.json -t 1000000 tests/test_session_keys.ts",
     "test:sealed": "ts-mocha -p ./tsconfig.json -t 1000000 tests/test_sealed_bids.ts",
-    "test:resolution": "ts-mocha -p ./tsconfig.json -t 1000000 tests/test_winner_resolution.ts"
+    "test:resolution": "ts-mocha -p ./tsconfig.json -t 1000000 tests/test_winner_resolution.ts",
+    "test:per": "ts-mocha -p ./tsconfig.json -t 1000000 tests/test_per_private.ts"
   },
   "dependencies": {
     "@anchor-lang/core": "^1.0.2",

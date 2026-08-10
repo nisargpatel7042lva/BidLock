@@ -40,4 +40,6 @@ pub enum BidLockError {
     NoValidReveals,
     #[msg("Room is already resolved")]
     AlreadyResolved,
+    #[msg("Account address does not match the expected program account")]
+    InvalidProgramAccount,
 }

@@ -27,6 +27,11 @@ pub struct Room {
     pub reveals: Vec<MemberReveal>,
     #[max_len(MAX_MEMBERS)]
     pub resolved_split: Vec<MemberSplit>,
+    /// Members who have submitted via the PER private flow (`submit_bid_private`).
+    /// Their plaintext bid amounts live in per-member ephemeral BidStore accounts
+    /// inside the ER and never touch the base layer.
+    #[max_len(MAX_MEMBERS)]
+    pub private_submitters: Vec<Pubkey>,
     pub bump: u8,
 }
 
@@ -62,6 +67,45 @@ pub struct MemberReveal {
     pub member: Pubkey,
     pub amount: u64,
     pub valid: bool,
+}
+
+/// Serialization layout for a private per-member BidStore ephemeral account.
+///
+/// These accounts exist ONLY inside the PER. They are never delegated to or
+/// committed to the Solana base layer, so there is no `#[account]` derive —
+/// just a fixed-offset binary layout written and read by the program directly.
+///
+/// Layout (40 bytes):
+///   [0..32]  member  Pubkey   — who this bid belongs to
+///   [32..40] amount  u64 LE   — plaintext bid amount
+pub struct BidStoreData {
+    pub member: Pubkey,
+    pub amount: u64,
+}
+
+impl BidStoreData {
+    pub const SIZE: usize = 32 + 8; // 40 bytes
+
+    pub fn write_to(&self, buf: &mut [u8]) {
+        buf[..32].copy_from_slice(self.member.as_ref());
+        buf[32..40].copy_from_slice(&self.amount.to_le_bytes());
+    }
+
+    pub fn read_from(buf: &[u8]) -> Option<Self> {
+        if buf.len() < Self::SIZE {
+            return None;
+        }
+        let member = Pubkey::new_from_array(buf[..32].try_into().ok()?);
+        let amount = u64::from_le_bytes(buf[32..40].try_into().ok()?);
+        Some(Self { member, amount })
+    }
+
+    /// Zero the amount field in-place (called during resolution to erase losing bids).
+    pub fn zero_amount(buf: &mut [u8]) {
+        if buf.len() >= Self::SIZE {
+            buf[32..40].fill(0);
+        }
+    }
 }
 
 /// A per-room, per-member session token. Created on the base layer by the
