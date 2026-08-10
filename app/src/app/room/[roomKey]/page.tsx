@@ -13,6 +13,7 @@ import { sessionPda, shortenAddress, PROGRAM_ID } from "@/lib/pda";
 import { getOrCreateSessionKey, storeProposal, getProposal } from "@/lib/session";
 import { computeCommitment, randomSalt } from "@/lib/commitment";
 import { getRoomStatus, type RoomAccount } from "@/lib/bidlock_types";
+import { friendlyError } from "@/lib/errors";
 import { ParticipantGrid } from "@/components/ParticipantGrid";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { SealCard } from "@/components/SealCard";
@@ -117,7 +118,7 @@ export default function RoomPage({
 
   /* ── Seal proposal ──────────────────────────────────────────────── */
   const handleSeal = useCallback(async (amountStr: string) => {
-    if (!program || !publicKey || !room || !roomPubkey) throw new Error("Not connected");
+    if (!program || !publicKey || !room || !roomPubkey) throw new Error("Wallet not connected.");
 
     const amount = BigInt(amountStr);
     const salt   = randomSalt();
@@ -128,15 +129,19 @@ export default function RoomPage({
 
     storeProposal(roomKey, amountStr, Array.from(salt));
 
-    await (program as any).methods
-      .submitBid(Array.from(commitment))
-      .accounts({
-        signer: sessionKp.publicKey,
-        room: roomPubkey,
-        roomSession: sessionPdaKey,
-      })
-      .signers([sessionKp])
-      .rpc({ commitment: "confirmed" });
+    try {
+      await (program as any).methods
+        .submitBid(Array.from(commitment))
+        .accounts({
+          signer: sessionKp.publicKey,
+          room: roomPubkey,
+          roomSession: sessionPdaKey,
+        })
+        .signers([sessionKp])
+        .rpc({ commitment: "confirmed" });
+    } catch (e) {
+      throw new Error(friendlyError(e));
+    }
 
     await fetchRoom();
   }, [program, publicKey, room, roomPubkey, roomKey, fetchRoom]);
@@ -157,7 +162,7 @@ export default function RoomPage({
       setActionMsg("Proposal revealed.");
       await fetchRoom();
     } catch (e: any) {
-      setActionErr(e?.message ?? "Reveal failed.");
+      setActionErr(friendlyError(e));
     } finally {
       setActionBusy(false);
     }
@@ -178,7 +183,7 @@ export default function RoomPage({
       setActionMsg("Settlement triggered. Waiting for convergence…");
       setTimeout(fetchRoom, 6000);
     } catch (e: any) {
-      setActionErr(e?.message ?? "Settlement failed.");
+      setActionErr(friendlyError(e));
     } finally {
       setActionBusy(false);
     }
@@ -199,7 +204,7 @@ export default function RoomPage({
       setActionMsg("Room converged on base layer.");
       await fetchRoom();
     } catch (e: any) {
-      setActionErr(e?.message ?? "Undelegate failed.");
+      setActionErr(friendlyError(e));
     } finally {
       setActionBusy(false);
     }
@@ -218,6 +223,21 @@ export default function RoomPage({
   const sealingOpen    = status === "submissionOpen" && now < sealDeadline;
   const revealOpen     = now > sealDeadline && now < revealDeadline;
   const canSettle      = now > revealDeadline && status !== "resolved";
+
+  // Edge case derivations
+  const sealingClosed        = now > sealDeadline;
+  const noBidsSealed         = sealingClosed && room !== null && room.submissions.length === 0;
+  const validReveals         = room ? room.reveals.filter((r) => r.valid) : [];
+  const allRevealsInvalid    = canSettle && validReveals.length === 0 && (room?.reveals.length ?? 0) > 0;
+  const neverRevealedMembers = room
+    ? room.submissions.filter(
+        (s) => !room.reveals.some((r) => r.member.toBase58() === s.member.toBase58())
+      )
+    : [];
+  // Detect tie: multiple members share the highest BPS in resolved_split
+  const maxBps = room ? Math.max(0, ...room.resolvedSplit.map((s) => s.shareBps)) : 0;
+  const topCount = room ? room.resolvedSplit.filter((s) => s.shareBps === maxBps).length : 0;
+  const isTie = status === "resolved" && topCount > 1 && maxBps > 0;
 
   const copyUrl = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -296,10 +316,35 @@ export default function RoomPage({
                 <Label text="Participants" />
                 <span className="mono" style={{ fontSize: 11, color: "var(--text-3)" }}>
                   {room.submissions.length}/{room.members.length} sealed
-                  {room.reveals.length > 0 && ` · ${room.reveals.filter((r) => r.valid).length} revealed`}
+                  {room.reveals.length > 0 && ` · ${validReveals.length} revealed`}
                 </span>
               </div>
               <ParticipantGrid room={room} currentMember={publicKey} />
+
+              {/* Never-revealed members callout (after sealing window closes) */}
+              {sealingClosed && neverRevealedMembers.length > 0 && status !== "resolved" && (
+                <div className="mono animate-fade-in" style={{
+                  marginTop: 14, fontSize: 11, color: "var(--text-3)",
+                  padding: "10px 14px", border: "1px solid var(--border)",
+                  letterSpacing: "0.06em", lineHeight: 1.7,
+                }}>
+                  {neverRevealedMembers.length === 1
+                    ? "1 member sealed but has not yet revealed."
+                    : `${neverRevealedMembers.length} members sealed but have not yet revealed.`}{" "}
+                  Their proposals will be excluded from convergence.
+                </div>
+              )}
+
+              {/* Tie-break note */}
+              {isTie && (
+                <div className="mono animate-fade-in" style={{
+                  marginTop: 14, fontSize: 11, color: "var(--gold)",
+                  padding: "10px 14px", border: "1px solid rgba(201,164,74,0.25)",
+                  letterSpacing: "0.06em",
+                }}>
+                  Tie detected — multiple proposals converged on the same value. Split is equal among tied members.
+                </div>
+              )}
             </Section>
 
             {/* ── Convergence result ────────────────────────────────── */}
@@ -353,7 +398,17 @@ export default function RoomPage({
                   </p>
                 )}
 
-                {canSettle && isCreator && (
+                {/* Zero bidders — sealing closed with no submissions */}
+                {noBidsSealed && (
+                  <DeadRoomMessage reason="No proposals were sealed before the sealing window closed. The room cannot converge." />
+                )}
+
+                {/* All reveals invalid — cannot settle */}
+                {allRevealsInvalid && isCreator && (
+                  <DeadRoomMessage reason="Every sealed proposal was revealed with a mismatched commitment. No valid proposals remain — convergence is not possible." />
+                )}
+
+                {canSettle && isCreator && !noBidsSealed && !allRevealsInvalid && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.6 }}>
                       All windows have closed. Trigger settlement to compute the group answer.
@@ -439,6 +494,26 @@ function SealedWaitingMessage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DeadRoomMessage({ reason }: { reason: string }) {
+  return (
+    <div className="animate-fade-in" style={{
+      padding: "18px 20px",
+      border: "1px solid rgba(217,80,80,0.25)",
+      background: "rgba(217,80,80,0.04)",
+    }}>
+      <div className="mono" style={{
+        fontSize: 10, letterSpacing: "0.16em", color: "var(--red)",
+        textTransform: "uppercase", marginBottom: 8,
+      }}>
+        Convergence impossible
+      </div>
+      <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>
+        {reason}
+      </p>
     </div>
   );
 }
