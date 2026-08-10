@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
+import { motion } from "framer-motion";
+import { Lock, X, Plus, ArrowRight } from "lucide-react";
 import { useProgram } from "@/lib/program";
 import { roomPda, shortenAddress } from "@/lib/pda";
 
@@ -15,26 +17,36 @@ const WalletButton = dynamic(
   { ssr: false }
 );
 
+const EASE = [0.16, 1, 0.3, 1] as const;
+
 function isValidPubkey(s: string): boolean {
   try { new PublicKey(s); return true; } catch { return false; }
 }
 
-function Label({ children }: { children: React.ReactNode }) {
+function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mono" style={{
-      display: "block", fontSize: 10, letterSpacing: "0.16em",
-      color: "var(--text-3)", textTransform: "uppercase", marginBottom: 8,
-    }}>
+    <label className="mono" style={{ display: "block", fontSize: 9, letterSpacing: "0.2em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 10 }}>
       {children}
     </label>
   );
 }
 
 function Hint({ children }: { children: React.ReactNode }) {
+  return <p style={{ fontSize: 12, color: "rgba(255,255,255,0.28)", marginTop: 8, lineHeight: 1.6 }}>{children}</p>;
+}
+
+function GlassInput({ ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 6, lineHeight: 1.5 }}>
-      {children}
-    </p>
+    <input
+      {...props}
+      className="liquid-glass"
+      style={{
+        width: "100%", background: "transparent", border: "none",
+        borderRadius: 10, padding: "12px 16px",
+        fontSize: 14, color: "#fff", fontFamily: "inherit", outline: "none",
+        ...(props.style ?? {}),
+      }}
+    />
   );
 }
 
@@ -51,36 +63,23 @@ export default function CreatePage() {
   const [errMsg, setErrMsg]   = useState("");
   const [roomAddr, setRoomAddr] = useState("");
 
-  const addMember = () => setMembers((m) => [...m, ""]);
-  const removeMember = (i: number) => setMembers((m) => m.filter((_, idx) => idx !== i));
-  const updateMember = (i: number, v: string) =>
-    setMembers((m) => m.map((x, idx) => (idx === i ? v : x)));
+  const addMember    = () => setMembers(m => [...m, ""]);
+  const removeMember = (i: number) => setMembers(m => m.filter((_, idx) => idx !== i));
+  const updateMember = (i: number, v: string) => setMembers(m => m.map((x, idx) => idx === i ? v : x));
 
   const handleCreate = useCallback(async () => {
     if (!program || !publicKey) return;
-
     setErrMsg("");
-
-    const validMembers = members
-      .map((m) => m.trim())
-      .filter((m) => m.length > 0 && isValidPubkey(m));
-
+    const validMembers = members.map(m => m.trim()).filter(m => m.length > 0 && isValidPubkey(m));
     if (!description.trim()) { setErrMsg("Add a description."); return; }
     if (validMembers.length === 0) { setErrMsg("Add at least one member address."); return; }
+    if (parseInt(revealHours) <= parseInt(sealingHours)) { setErrMsg("Convergence window must end after the sealing window."); return; }
 
-    const allMembers = [...new Set([publicKey.toBase58(), ...validMembers])].map(
-      (k) => new PublicKey(k)
-    );
-
-    const roomId = new BN(Date.now());
-    const now    = Math.floor(Date.now() / 1000);
+    const allMembers = [...new Set([publicKey.toBase58(), ...validMembers])].map(k => new PublicKey(k));
+    const roomId     = new BN(Date.now());
+    const now        = Math.floor(Date.now() / 1000);
     const submissionDeadline = new BN(now + parseInt(sealingHours) * 3600);
-    const revealDeadline     = new BN(now + parseInt(revealHours)  * 3600);
-
-    if (parseInt(revealHours) <= parseInt(sealingHours)) {
-      setErrMsg("Convergence window must end after the sealing window.");
-      return;
-    }
+    const revealDeadline     = new BN(now + parseInt(revealHours) * 3600);
 
     setStatus("creating");
     try {
@@ -89,7 +88,6 @@ export default function CreatePage() {
         .createRoom(roomId, description.trim(), allMembers, submissionDeadline, revealDeadline)
         .accounts({ creator: publicKey })
         .rpc({ commitment: "confirmed" });
-
       const pda = roomPda(publicKey, roomId);
       setRoomAddr(pda.toBase58());
       setStatus("done");
@@ -99,195 +97,145 @@ export default function CreatePage() {
     }
   }, [program, publicKey, description, members, sealingHours, revealHours]);
 
+  /* ── Done state ── */
   if (status === "done") {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-        <Nav />
+      <div style={{ minHeight: "100vh", background: "#000", display: "flex", flexDirection: "column" }}>
+        <PageNav />
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div className="card animate-fade-up" style={{ maxWidth: 560, width: "100%", padding: "40px 36px" }}>
-            <div className="mono" style={{
-              fontSize: 10, letterSpacing: "0.22em", color: "var(--gold)",
-              textTransform: "uppercase", marginBottom: 24,
-            }}>
+          <motion.div className="liquid-glass" style={{ borderRadius: 24, maxWidth: 520, width: "100%", padding: "48px 40px" }}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: EASE }}>
+            <span className="mono" style={{ fontSize: 9, letterSpacing: "0.22em", color: "#C9A44A", textTransform: "uppercase", display: "block", marginBottom: 20 }}>
               Room created
-            </div>
-            <h2 className="display" style={{ fontSize: 36, marginBottom: 12 }}>
-              {description}
-            </h2>
-            <p style={{ fontSize: 14, color: "var(--text-2)", marginBottom: 32, lineHeight: 1.6 }}>
+            </span>
+            <h2 className="display" style={{ fontSize: 32, color: "#fff", marginBottom: 10 }}>{description}</h2>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 1.7, marginBottom: 28 }}>
               Share this address with your group. Each member navigates to the room URL to seal their proposal.
             </p>
-
-            <div style={{
-              background: "var(--surface-2)", border: "1px solid var(--border)",
-              padding: "14px 16px", marginBottom: 24, display: "flex",
-              alignItems: "center", justifyContent: "space-between", gap: 12,
+            <div className="liquid-glass" style={{ borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span className="mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", wordBreak: "break-all" }}>{roomAddr}</span>
+              <button className="mono" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/room/${roomAddr}`)}
+                style={{ padding: "6px 12px", fontSize: 9, color: "#C9A44A", background: "transparent", border: "1px solid rgba(201,164,74,0.25)", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                Copy URL
+              </button>
+            </div>
+            <button onClick={() => router.push(`/room/${roomAddr}`)} style={{
+              width: "100%", padding: "14px", background: "#C9A44A", color: "#000", border: "none", borderRadius: 10,
+              fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.05em",
             }}>
-              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)", wordBreak: "break-all" }}>
-                {roomAddr}
-              </span>
-              <button
-                className="btn-ghost"
-                style={{ padding: "7px 14px", fontSize: 10, flexShrink: 0 }}
-                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/room/${roomAddr}`)}
-              >
-                Copy
-              </button>
-            </div>
-
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                className="btn-gold"
-                style={{ flex: 1, justifyContent: "center" }}
-                onClick={() => router.push(`/room/${roomAddr}`)}
-              >
-                Enter Room →
-              </button>
-            </div>
-          </div>
+              Enter Room →
+            </button>
+          </motion.div>
         </div>
       </div>
     );
   }
 
+  /* ── Form ── */
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <Nav />
+    <div style={{ minHeight: "100vh", background: "#000", display: "flex", flexDirection: "column" }}>
+      <PageNav />
 
-      <main style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 24px" }}>
-        <div style={{ maxWidth: 560, width: "100%" }}>
+      {/* ambient */}
+      <div aria-hidden style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+        <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 700, height: 500, background: "radial-gradient(ellipse, rgba(201,164,74,0.05) 0%, transparent 65%)" }} />
+      </div>
+
+      <main style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 24px 80px" }}>
+        <div style={{ maxWidth: 520, width: "100%" }}>
           {/* Header */}
-          <div className="animate-fade-up" style={{ marginBottom: 40 }}>
-            <div className="mono" style={{
-              fontSize: 10, letterSpacing: "0.22em", color: "var(--text-3)",
-              textTransform: "uppercase", marginBottom: 12,
-            }}>
+          <motion.div style={{ marginBottom: 44 }}
+            initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
+            <span className="mono" style={{ fontSize: 9, letterSpacing: "0.22em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", display: "block", marginBottom: 14 }}>
               New Room
-            </div>
-            <h1 className="display" style={{ fontSize: 44, lineHeight: 1.05, marginBottom: 10 }}>
+            </span>
+            <h1 className="display" style={{ fontSize: "clamp(32px,5vw,52px)", lineHeight: 1.05, color: "#fff", marginBottom: 10 }}>
               What is the group deciding?
             </h1>
-            <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.6 }}>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", lineHeight: 1.7 }}>
               Create a sealed proposal room. Every member proposes privately, then reveals at once.
             </p>
-          </div>
+          </motion.div>
 
           {!connected ? (
-            <div className="card animate-fade-up stagger-1" style={{ padding: 32, textAlign: "center" }}>
-              <p style={{ color: "var(--text-2)", marginBottom: 20, fontSize: 14 }}>
-                Connect your wallet to create a room.
-              </p>
+            <motion.div className="liquid-glass" style={{ borderRadius: 20, padding: 32, textAlign: "center" }}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
+              <p style={{ color: "rgba(255,255,255,0.5)", marginBottom: 20, fontSize: 14 }}>Connect your wallet to create a room.</p>
               <WalletButton />
-            </div>
+            </motion.div>
           ) : (
-            <form
-              onSubmit={(e) => { e.preventDefault(); handleCreate(); }}
-              style={{ display: "flex", flexDirection: "column", gap: 28 }}
-              className="animate-fade-up stagger-1"
-            >
+            <motion.form onSubmit={e => { e.preventDefault(); handleCreate(); }} style={{ display: "flex", flexDirection: "column", gap: 28 }}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
+
               {/* Description */}
               <div>
-                <Label>What are we deciding?</Label>
-                <input
-                  className="input-dark"
-                  placeholder="e.g. Budget for Q4 marketing"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  maxLength={200}
-                />
-                <Hint>This appears at the top of every member's room view.</Hint>
+                <FieldLabel>What are we deciding?</FieldLabel>
+                <GlassInput placeholder="e.g. Budget for Q4 marketing" value={description} onChange={e => setDescription(e.target.value)} maxLength={200} />
+                <Hint>This appears at the top of every member&apos;s room view.</Hint>
               </div>
 
               {/* Members */}
               <div>
-                <Label>Member addresses</Label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <FieldLabel>Member addresses</FieldLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {members.map((m, i) => (
-                    <div key={i} style={{ display: "flex", gap: 6 }}>
-                      <input
-                        className="input-dark mono"
-                        placeholder={`Member ${i + 1} address`}
-                        value={m}
-                        onChange={(e) => updateMember(i, e.target.value)}
-                        style={{ flex: 1, fontSize: 12 }}
-                      />
+                    <div key={i} style={{ display: "flex", gap: 8 }}>
+                      <GlassInput className="mono liquid-glass" placeholder={`Member ${i + 1} address`} value={m} onChange={e => updateMember(i, e.target.value)}
+                        style={{ fontSize: 11 }} />
                       {members.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeMember(i)}
-                          className="btn-ghost"
-                          style={{ padding: "0 14px", fontSize: 16 }}
-                        >
-                          ×
+                        <button type="button" onClick={() => removeMember(i)}
+                          style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, cursor: "pointer", color: "rgba(255,255,255,0.5)", flexShrink: 0 }}>
+                          <X size={14} />
                         </button>
                       )}
                     </div>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={addMember}
-                  className="btn-ghost"
-                  style={{ marginTop: 8, padding: "8px 16px", fontSize: 11 }}
-                >
-                  + Add member
+                <button type="button" onClick={addMember}
+                  style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.45)", background: "transparent", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}>
+                  <Plus size={12} /> Add member
                 </button>
-                <Hint>
-                  Your address ({shortenAddress(publicKey!.toBase58(), 4)}) is added as a
-                  member automatically.
-                </Hint>
+                <Hint>Your address ({shortenAddress(publicKey!.toBase58(), 4)}) is added automatically.</Hint>
               </div>
 
-              {/* Sealing window */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {/* Deadlines */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div>
-                  <Label>Sealing window (hours)</Label>
-                  <input
-                    className="input-dark mono"
-                    type="number"
-                    min={1}
-                    value={sealingHours}
-                    onChange={(e) => setSealingHours(e.target.value)}
-                  />
-                  <Hint>How long members have to seal their proposal.</Hint>
+                  <FieldLabel>Sealing window (hours)</FieldLabel>
+                  <GlassInput className="mono liquid-glass" type="number" min={1} value={sealingHours} onChange={e => setSealingHours(e.target.value)} />
+                  <Hint>How long members have to seal.</Hint>
                 </div>
                 <div>
-                  <Label>Convergence window (hours)</Label>
-                  <input
-                    className="input-dark mono"
-                    type="number"
-                    min={2}
-                    value={revealHours}
-                    onChange={(e) => setRevealHours(e.target.value)}
-                  />
-                  <Hint>When members reveal — must be after sealing ends.</Hint>
+                  <FieldLabel>Convergence window (hours)</FieldLabel>
+                  <GlassInput className="mono liquid-glass" type="number" min={2} value={revealHours} onChange={e => setRevealHours(e.target.value)} />
+                  <Hint>Must end after sealing closes.</Hint>
                 </div>
               </div>
 
               {/* Error */}
-              {(errMsg || status === "error") && (
-                <p className="mono animate-fade-in" style={{
-                  fontSize: 12, color: "var(--red)", letterSpacing: "0.05em",
-                  padding: "12px 16px", background: "rgba(217,80,80,0.06)",
-                  border: "1px solid rgba(217,80,80,0.2)",
-                }}>
-                  {errMsg || "Something went wrong. Check your wallet and try again."}
-                </p>
+              {errMsg && (
+                <div style={{ padding: "12px 16px", background: "rgba(217,80,80,0.06)", border: "1px solid rgba(217,80,80,0.2)", borderRadius: 8 }}>
+                  <p className="mono" style={{ fontSize: 11, color: "#D95050", letterSpacing: "0.05em" }}>{errMsg}</p>
+                </div>
               )}
 
-              <button
-                type="submit"
-                className="btn-gold"
-                disabled={status === "creating" || !connected}
-                style={{ justifyContent: "center", padding: 14 }}
-              >
+              {/* Submit */}
+              <button type="submit" disabled={status === "creating" || !connected}
+                style={{
+                  width: "100%", padding: "14px", background: status === "creating" ? "rgba(201,164,74,0.4)" : "#C9A44A",
+                  color: "#000", border: "none", borderRadius: 10,
+                  fontSize: 13, fontWeight: 600, cursor: status === "creating" ? "not-allowed" : "pointer",
+                  fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  transition: "background 0.2s",
+                }}>
                 {status === "creating" ? (
                   <><div className="spinner" style={{ borderTopColor: "#06040A" }} /> Creating room…</>
                 ) : (
-                  "Create Room →"
+                  <><ArrowRight size={14} /> Create Room</>
                 )}
               </button>
-            </form>
+            </motion.form>
           )}
         </div>
       </main>
@@ -295,14 +243,16 @@ export default function CreatePage() {
   );
 }
 
-function Nav() {
+function PageNav() {
   return (
-    <nav style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "20px 40px", borderBottom: "1px solid var(--border)",
-    }}>
-      <Link href="/" className="display" style={{ fontSize: 20, letterSpacing: "-0.02em" }}>BidLock</Link>
-      <WalletButton />
-    </nav>
+    <header style={{ position: "sticky", top: 0, zIndex: 50, padding: "16px 24px", background: "#000", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Lock size={13} color="#C9A44A" strokeWidth={1.5} />
+          <span className="display" style={{ fontSize: 17, color: "#fff" }}>BidLock</span>
+        </Link>
+        <WalletButton />
+      </div>
+    </header>
   );
 }

@@ -272,6 +272,77 @@ input, textarea, select {
 /* ─── Divider ────────────────────────────────────────────────────────── */
 .divider { height: 1px; background: var(--border); }
 
+/* ─── Liquid Glass ───────────────────────────────────────────────────── */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.01);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.45) 0%,
+    rgba(255,255,255,0.15) 20%,
+    rgba(255,255,255,0)    40%,
+    rgba(255,255,255,0)    60%,
+    rgba(255,255,255,0.15) 80%,
+    rgba(255,255,255,0.45) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Landing utilities ──────────────────────────────────────────────── */
+.lp-gold-text {
+  background: linear-gradient(135deg, #C9A44A 0%, #F0CF80 45%, #C9A44A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.lp-teal-text {
+  background: linear-gradient(135deg, #3ECECE 0%, #9FFFFF 50%, #3ECECE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.lp-hero-gradient {
+  background: linear-gradient(135deg, #C9A44A 0%, #F0CF80 40%, #3ECECE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+@keyframes lp-marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.lp-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: lp-marquee 32s linear infinite;
+}
+@keyframes lp-pulse-gold {
+  0%,100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+.lp-pulse-gold { animation: lp-pulse-gold 2s ease-in-out infinite; }
+@keyframes lp-spin-slow    { to { transform: rotate(360deg);  } }
+@keyframes lp-spin-reverse { to { transform: rotate(-360deg); } }
+.lp-spin-slow    { animation: lp-spin-slow 80s linear infinite; }
+.lp-spin-reverse { animation: lp-spin-reverse 60s linear infinite; }
+
 /* ─── Wallet adapter ─────────────────────────────────────────────────── */
 .wallet-adapter-button { display: none !important; }
 .wallet-adapter-modal-wrapper {

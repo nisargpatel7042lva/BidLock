@@ -27,7 +27,7 @@ const WalletButton = dynamic(
 function Label({ text }: { text: string }) {
   return (
     <span className="mono" style={{
-      fontSize: 10, letterSpacing: "0.16em", color: "var(--text-3)",
+      fontSize: 9, letterSpacing: "0.2em", color: "rgba(255,255,255,0.3)",
       textTransform: "uppercase",
     }}>{text}</span>
   );
@@ -35,7 +35,7 @@ function Label({ text }: { text: string }) {
 
 function Section({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div style={{ padding: "24px 0", borderBottom: "1px solid var(--border)", ...style }}>
+    <div style={{ padding: "24px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", ...style }}>
       {children}
     </div>
   );
@@ -251,23 +251,30 @@ export default function RoomPage({
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#000" }}>
       {/* Nav */}
       <nav style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "16px 32px", borderBottom: "1px solid var(--border)", position: "sticky",
-        top: 0, background: "var(--bg)", zIndex: 20,
+        padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky",
+        top: 0, background: "#000", zIndex: 20,
       }}>
-        <Link href="/" className="display" style={{ fontSize: 18, letterSpacing: "-0.02em" }}>BidLock</Link>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={copyUrl} className="btn-ghost" style={{ padding: "7px 14px", fontSize: 10 }}>
-            {copied ? "Copied!" : "Copy Room URL"}
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="6" width="10" height="6.5" rx="1" stroke="#C9A44A" strokeWidth="1.2"/><path d="M3.5 6V4a3 3 0 016 0v2" stroke="#C9A44A" strokeWidth="1.2" strokeLinecap="round"/><circle cx="6.5" cy="9.5" r="1" fill="#C9A44A"/></svg>
+          <span className="display" style={{ fontSize: 17, color: "#fff" }}>BidLock</span>
+        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={copyUrl} className="liquid-glass" style={{
+            borderRadius: 999, padding: "7px 16px", fontSize: 10, color: copied ? "#3ECECE" : "rgba(255,255,255,0.6)",
+            background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
+            letterSpacing: "0.08em",
+          }}>
+            {copied ? "Copied ✓" : "Copy Room URL"}
           </button>
           <WalletButton />
         </div>
       </nav>
 
-      <main style={{ flex: 1, maxWidth: 720, width: "100%", margin: "0 auto", padding: "0 24px 60px" }}>
+      <main style={{ flex: 1, maxWidth: 680, width: "100%", margin: "0 auto", padding: "0 24px 60px" }}>
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 80 }}>
             <div className="spinner" style={{ width: 24, height: 24 }} />
@@ -279,14 +286,14 @@ export default function RoomPage({
             {/* Room header */}
             <Section style={{ paddingTop: 36 }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 6 }}>
-                <h1 className="display animate-fade-up" style={{ fontSize: "clamp(28px, 5vw, 44px)", lineHeight: 1.05 }}>
+                <h1 className="display animate-fade-up" style={{ fontSize: "clamp(28px, 5vw, 44px)", lineHeight: 1.05, color: "#fff" }}>
                   {room.poolDescription}
                 </h1>
                 <StatusBadge status={status!} />
               </div>
 
               <div className="mono animate-fade-up stagger-1" style={{
-                fontSize: 11, color: "var(--text-3)", letterSpacing: "0.08em",
+                fontSize: 11, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em",
               }}>
                 {shortenAddress(roomKey, 6)}
               </div>
@@ -314,7 +321,7 @@ export default function RoomPage({
             <Section>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <Label text="Participants" />
-                <span className="mono" style={{ fontSize: 11, color: "var(--text-3)" }}>
+                <span className="mono" style={{ fontSize: 10, color: "rgba(255,255,255,0.28)" }}>
                   {room.submissions.length}/{room.members.length} sealed
                   {room.reveals.length > 0 && ` · ${validReveals.length} revealed`}
                 </span>
@@ -378,22 +385,19 @@ export default function RoomPage({
                 )}
 
                 {revealOpen && !hasRevealed && (
-                  <div className="animate-fade-up" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.6 }}>
+                  <div className="animate-fade-up" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.7 }}>
                       The sealing window has closed. Reveal your proposal to contribute to convergence.
                     </p>
-                    <button
-                      className="btn-teal"
-                      onClick={handleReveal}
-                      disabled={actionBusy}
-                    >
-                      {actionBusy ? <><div className="spinner" /> Revealing…</> : "Reveal Proposal"}
+                    <button onClick={handleReveal} disabled={actionBusy}
+                      style={{ padding: "12px 24px", background: "rgba(62,206,206,0.1)", color: "#3ECECE", border: "1px solid rgba(62,206,206,0.3)", borderRadius: 10, fontSize: 13, cursor: actionBusy ? "not-allowed" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8, opacity: actionBusy ? 0.6 : 1 }}>
+                      {actionBusy ? <><div className="spinner" /> Revealing…</> : "Reveal Proposal →"}
                     </button>
                   </div>
                 )}
 
                 {revealOpen && hasRevealed && (
-                  <p style={{ fontSize: 14, color: "var(--text-2)" }}>
+                  <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 1.7 }}>
                     Your proposal is revealed. Waiting for the group to converge…
                   </p>
                 )}
@@ -409,15 +413,17 @@ export default function RoomPage({
                 )}
 
                 {canSettle && isCreator && !noBidsSealed && !allRevealsInvalid && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.6 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.7 }}>
                       All windows have closed. Trigger settlement to compute the group answer.
                     </p>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      <button className="btn-teal" onClick={handleSettle} disabled={actionBusy}>
+                      <button onClick={handleSettle} disabled={actionBusy}
+                        style={{ padding: "11px 22px", background: "rgba(62,206,206,0.1)", color: "#3ECECE", border: "1px solid rgba(62,206,206,0.3)", borderRadius: 10, fontSize: 13, cursor: actionBusy ? "not-allowed" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 }}>
                         {actionBusy ? <><div className="spinner" /> Working…</> : "Trigger Settlement"}
                       </button>
-                      <button className="btn-ghost" onClick={handleUndelegate} disabled={actionBusy}>
+                      <button onClick={handleUndelegate} disabled={actionBusy}
+                        style={{ padding: "11px 22px", background: "transparent", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, fontSize: 13, cursor: actionBusy ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
                         Commit to Chain
                       </button>
                     </div>
@@ -429,7 +435,7 @@ export default function RoomPage({
             {/* Not a member */}
             {connected && !isMember && (
               <Section>
-                <p className="mono" style={{ fontSize: 12, color: "var(--text-3)", letterSpacing: "0.05em" }}>
+                <p className="mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", letterSpacing: "0.06em" }}>
                   You are not listed as a member of this room. You can observe but not propose.
                 </p>
               </Section>
@@ -437,8 +443,8 @@ export default function RoomPage({
 
             {/* Connect prompt */}
             {!connected && (
-              <Section style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
-                <p style={{ fontSize: 14, color: "var(--text-2)" }}>Connect your wallet to participate.</p>
+              <Section style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)" }}>Connect your wallet to participate.</p>
                 <WalletButton />
               </Section>
             )}
@@ -447,16 +453,10 @@ export default function RoomPage({
             {(actionMsg || actionErr) && (
               <div className="animate-fade-in" style={{ marginTop: 16 }}>
                 {actionMsg && (
-                  <p className="mono" style={{ fontSize: 12, color: "var(--teal)", letterSpacing: "0.06em" }}>
-                    ◎ {actionMsg}
-                  </p>
+                  <p className="mono" style={{ fontSize: 11, color: "#3ECECE", letterSpacing: "0.06em" }}>◎ {actionMsg}</p>
                 )}
                 {actionErr && (
-                  <p className="mono" style={{
-                    fontSize: 12, color: "var(--red)", letterSpacing: "0.06em",
-                    padding: "10px 14px", background: "rgba(217,80,80,0.06)",
-                    border: "1px solid rgba(217,80,80,0.2)", marginTop: 8,
-                  }}>
+                  <p className="mono" style={{ fontSize: 11, color: "#D95050", letterSpacing: "0.06em", padding: "10px 14px", background: "rgba(217,80,80,0.06)", border: "1px solid rgba(217,80,80,0.18)", marginTop: 8, borderRadius: 8 }}>
                     {actionErr}
                   </p>
                 )}
@@ -470,26 +470,35 @@ export default function RoomPage({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "submissionOpen") return <span className="badge badge-sealing">● Sealing</span>;
-  if (status === "revealOpen")     return <span className="badge badge-revealing">● Revealing</span>;
-  if (status === "resolved")       return <span className="badge badge-converged">◉ Converged</span>;
-  return <span className="badge badge-sealed">○ Pending</span>;
+  const styles: Record<string, React.CSSProperties> = {
+    submissionOpen: { color: "#C9A44A", background: "rgba(201,164,74,0.08)", border: "1px solid rgba(201,164,74,0.25)" },
+    revealOpen:     { color: "#3ECECE", background: "rgba(62,206,206,0.08)",  border: "1px solid rgba(62,206,206,0.25)" },
+    resolved:       { color: "#3ECECE", background: "rgba(62,206,206,0.08)",  border: "1px solid #3ECECE" },
+    default:        { color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" },
+  };
+  const labels: Record<string, string> = { submissionOpen: "● Sealing", revealOpen: "● Revealing", resolved: "◉ Converged" };
+  const s = styles[status] ?? styles.default;
+  return (
+    <span className="mono" style={{ ...s, fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", padding: "4px 10px", borderRadius: 4 }}>
+      {labels[status] ?? "○ Pending"}
+    </span>
+  );
 }
 
 function SealedWaitingMessage() {
   return (
-    <div className="card-sealed animate-fade-in" style={{ padding: "20px 22px" }}>
+    <div className="liquid-glass animate-fade-in" style={{ borderRadius: 12, padding: "18px 20px", background: "rgba(201,164,74,0.04)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="3" y="9" width="14" height="10" rx="0.5" stroke="var(--gold)" strokeWidth="1.3" />
-          <path d="M6.5 9V6.5a3.5 3.5 0 017 0V9" stroke="var(--gold)" strokeWidth="1.3" strokeLinecap="square" />
-          <rect x="8.5" y="12" width="3" height="3" rx="1.5" fill="var(--gold)" />
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+          <rect x="3" y="9" width="14" height="10" rx="1" stroke="#C9A44A" strokeWidth="1.3" />
+          <path d="M6.5 9V6.5a3.5 3.5 0 017 0V9" stroke="#C9A44A" strokeWidth="1.3" strokeLinecap="round" />
+          <rect x="8.5" y="12" width="3" height="3" rx="1.5" fill="#C9A44A" />
         </svg>
         <div>
-          <div className="mono" style={{ fontSize: 11, color: "var(--gold)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
+          <div className="mono" style={{ fontSize: 10, color: "#C9A44A", letterSpacing: "0.14em", textTransform: "uppercase" }}>
             Proposal sealed
           </div>
-          <div style={{ fontSize: 13, color: "var(--text-3)", marginTop: 4 }}>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
             Waiting for others to seal, then the reveal window opens.
           </div>
         </div>
@@ -500,33 +509,22 @@ function SealedWaitingMessage() {
 
 function DeadRoomMessage({ reason }: { reason: string }) {
   return (
-    <div className="animate-fade-in" style={{
-      padding: "18px 20px",
-      border: "1px solid rgba(217,80,80,0.25)",
-      background: "rgba(217,80,80,0.04)",
-    }}>
-      <div className="mono" style={{
-        fontSize: 10, letterSpacing: "0.16em", color: "var(--red)",
-        textTransform: "uppercase", marginBottom: 8,
-      }}>
+    <div className="liquid-glass animate-fade-in" style={{ borderRadius: 12, padding: "18px 20px", background: "rgba(217,80,80,0.04)", border: "1px solid rgba(217,80,80,0.18)" }}>
+      <div className="mono" style={{ fontSize: 9, letterSpacing: "0.16em", color: "#D95050", textTransform: "uppercase", marginBottom: 8 }}>
         Convergence impossible
       </div>
-      <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>
-        {reason}
-      </p>
+      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.7 }}>{reason}</p>
     </div>
   );
 }
 
 function ErrorScreen({ msg }: { msg: string }) {
   return (
-    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 60 }}>
       <div style={{ textAlign: "center" }}>
-        <div className="mono" style={{ fontSize: 11, color: "var(--text-3)", letterSpacing: "0.18em", marginBottom: 12 }}>
-          Error
-        </div>
-        <p style={{ color: "var(--text-2)", marginBottom: 20 }}>{msg}</p>
-        <Link href="/" className="btn-ghost" style={{ fontSize: 11 }}>← Back home</Link>
+        <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 14 }}>Error</div>
+        <p style={{ color: "rgba(255,255,255,0.55)", marginBottom: 24, fontSize: 15 }}>{msg}</p>
+        <Link href="/" style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 2 }}>← Back home</Link>
       </div>
     </div>
   );
