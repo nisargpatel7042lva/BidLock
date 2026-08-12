@@ -142,13 +142,20 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
     setSessionBusy(true);
     setActionErr("");
     try {
-      const sessionKp  = getOrCreateSessionKey(roomKey);
-      const validUntil = new BN(Math.floor(Date.now() / 1000) + 7 * 24 * 3600);
+      const sessionKp     = getOrCreateSessionKey(roomKey);
+      const sessionPdaKey = sessionPda(roomPubkey, publicKey);
+      const validUntil    = new BN(Math.floor(Date.now() / 1000) + 7 * 24 * 3600);
 
-      // Build createSession instruction
+      // Build createSession instruction — pass all accounts explicitly so
+      // Anchor doesn't need to auto-derive the init PDA or system program
       const sessionIx = await (program as any).methods
         .createSession(sessionKp.publicKey, validUntil)
-        .accounts({ member: publicKey, room: roomPubkey })
+        .accounts({
+          member: publicKey,
+          room: roomPubkey,
+          roomSession: sessionPdaKey,
+          systemProgram: SystemProgram.programId,
+        })
         .instruction();
 
       // Fund session keypair with 0.01 SOL so it can pay tx fees for sealing
