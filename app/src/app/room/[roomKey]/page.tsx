@@ -357,8 +357,14 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
   const revealDeadline = room ? room.revealDeadline.toNumber() : 0;
   const sealingOpen    = status === "submissionOpen" && now < sealDeadline;
   const revealOpen     = now > sealDeadline && now < revealDeadline;
-  const canSettle      = now > revealDeadline && status !== "resolved";
   const validReveals   = room ? room.reveals.filter(r => r.valid) : [];
+  // Allow early settle when all sealed members have already revealed — resolveRoom
+  // has no time constraint on-chain, so this is safe and improves demo UX.
+  const sealedKeys     = room ? room.submissions.map(s => s.member.toBase58()) : [];
+  const allSealedHaveRevealed = sealedKeys.length > 0 &&
+    sealedKeys.every(k => validReveals.some(r => r.member.toBase58() === k));
+  const canSettle      = now > sealDeadline && status !== "resolved" &&
+    (now > revealDeadline || allSealedHaveRevealed);
   const maxBps  = room ? Math.max(0, ...room.resolvedSplit.map(s => s.shareBps)) : 0;
   const isTie   = status === "resolved" && room!.resolvedSplit.filter(s => s.shareBps === maxBps).length > 1 && maxBps > 0;
   const neverRevealedMembers = room
