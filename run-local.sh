@@ -26,9 +26,11 @@ if [[ "${1:-}" == "airdrop" ]]; then
 fi
 
 # ── Kill existing validator if running ──────────────────────────────
-if pgrep -x solana-test-validator > /dev/null 2>&1; then
+# Use -f (full command match) because Linux truncates process names to 15 chars,
+# so pgrep -x never matches "solana-test-validator".
+if pgrep -f "solana-test-validator" > /dev/null 2>&1; then
   echo "Stopping existing validator…"
-  pkill -x solana-test-validator || true
+  pkill -f "solana-test-validator" || true
   sleep 2
 fi
 
