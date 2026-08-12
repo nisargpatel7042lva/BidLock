@@ -57,8 +57,8 @@ export default function CreatePage() {
 
   const [description, setDescription] = useState("");
   const [members, setMembers]         = useState<string[]>([""]);
-  const [sealingHours, setSealingHours] = useState("24");
-  const [revealHours, setRevealHours]   = useState("48");
+  const [sealingHours, setSealingHours] = useState("1");
+  const [revealHours, setRevealHours]   = useState("2");
   const [status, setStatus]   = useState<"idle" | "creating" | "done" | "error">("idle");
   const [errMsg, setErrMsg]   = useState("");
   const [roomAddr, setRoomAddr] = useState("");
@@ -73,13 +73,13 @@ export default function CreatePage() {
     const validMembers = members.map(m => m.trim()).filter(m => m.length > 0 && isValidPubkey(m));
     if (!description.trim()) { setErrMsg("Add a description."); return; }
     if (validMembers.length === 0) { setErrMsg("Add at least one member address."); return; }
-    if (parseInt(revealHours) <= parseInt(sealingHours)) { setErrMsg("Convergence window must end after the sealing window."); return; }
+    if (parseFloat(revealHours) <= parseFloat(sealingHours)) { setErrMsg("Convergence window must end after the sealing window."); return; }
 
     const allMembers = [...new Set([publicKey.toBase58(), ...validMembers])].map(k => new PublicKey(k));
     const roomId     = new BN(Date.now());
     const now        = Math.floor(Date.now() / 1000);
-    const submissionDeadline = new BN(now + parseInt(sealingHours) * 3600);
-    const revealDeadline     = new BN(now + parseInt(revealHours) * 3600);
+    const submissionDeadline = new BN(now + Math.round(parseFloat(sealingHours) * 3600));
+    const revealDeadline     = new BN(now + Math.round(parseFloat(revealHours) * 3600));
 
     setStatus("creating");
     try {
@@ -213,12 +213,12 @@ export default function CreatePage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div>
                   <FieldLabel>Sealing window (hours)</FieldLabel>
-                  <GlassInput className="mono liquid-glass" type="number" min={1} value={sealingHours} onChange={e => setSealingHours(e.target.value)} />
-                  <Hint>How long members have to seal.</Hint>
+                  <GlassInput className="mono liquid-glass" type="number" min={0.05} step={0.05} value={sealingHours} onChange={e => setSealingHours(e.target.value)} />
+                  <Hint>How long members have to seal. Use decimals for minutes (0.1 = 6 min).</Hint>
                 </div>
                 <div>
                   <FieldLabel>Convergence window (hours)</FieldLabel>
-                  <GlassInput className="mono liquid-glass" type="number" min={2} value={revealHours} onChange={e => setRevealHours(e.target.value)} />
+                  <GlassInput className="mono liquid-glass" type="number" min={0.1} step={0.05} value={revealHours} onChange={e => setRevealHours(e.target.value)} />
                   <Hint>Must end after sealing closes.</Hint>
                 </div>
               </div>

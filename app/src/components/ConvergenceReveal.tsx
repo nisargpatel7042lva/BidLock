@@ -4,207 +4,112 @@ import { useEffect, useRef, useState } from "react";
 import { shortenAddress } from "@/lib/pda";
 import type { RoomAccount } from "@/lib/bidlock_types";
 
-interface Props {
-  room: RoomAccount;
-}
+interface Props { room: RoomAccount }
 
 function useCountUp(target: number, duration = 1200) {
   const [val, setVal] = useState(0);
   const rafRef = useRef<number | null>(null);
-
   useEffect(() => {
     const start = performance.now();
     const step = (now: number) => {
       const p = Math.min((now - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      setVal(Math.round(ease * target));
+      setVal(Math.round((1 - Math.pow(1 - p, 3)) * target));
       if (p < 1) rafRef.current = requestAnimationFrame(step);
     };
     rafRef.current = requestAnimationFrame(step);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [target, duration]);
-
   return val;
 }
 
-function WinnerCard({ member, amount }: { member: string; amount: number }) {
-  const animated = useCountUp(amount, 1400);
-
-  return (
-    <div
-      className="animate-fade-in"
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--gold)",
-        padding: "36px 40px",
-        textAlign: "center",
-        animation: "convergence-glow 3s ease-in-out infinite",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Corner accents */}
-      {[
-        { top: 0, left: 0 },
-        { top: 0, right: 0 },
-        { bottom: 0, left: 0 },
-        { bottom: 0, right: 0 },
-      ].map((pos, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            width: 12,
-            height: 12,
-            borderTop: pos.top === 0 ? "1px solid var(--gold-2)" : undefined,
-            borderBottom: pos.bottom === 0 ? "1px solid var(--gold-2)" : undefined,
-            borderLeft: pos.left === 0 ? "1px solid var(--gold-2)" : undefined,
-            borderRight: pos.right === 0 ? "1px solid var(--gold-2)" : undefined,
-            ...pos,
-          }}
-        />
-      ))}
-
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          letterSpacing: "0.24em",
-          color: "var(--gold)",
-          textTransform: "uppercase",
-          marginBottom: 24,
-        }}
-      >
-        The group converges on
-      </div>
-
-      <div
-        className="display"
-        style={{
-          fontSize: 64,
-          color: "var(--text)",
-          lineHeight: 1,
-          marginBottom: 8,
-          fontWeight: 600,
-        }}
-      >
-        {animated.toLocaleString()}
-      </div>
-
-      <div
-        className="mono"
-        style={{
-          fontSize: 12,
-          color: "var(--text-3)",
-          marginBottom: 24,
-          letterSpacing: "0.1em",
-        }}
-      >
-        lamports
-      </div>
-
-      <div
-        className="mono"
-        style={{
-          fontSize: 12,
-          color: "var(--text-2)",
-          letterSpacing: "0.06em",
-          padding: "8px 16px",
-          background: "var(--gold-dim)",
-          display: "inline-block",
-        }}
-      >
-        {shortenAddress(member, 6)}
-      </div>
-    </div>
-  );
-}
-
-function RevealedCard({
-  member,
-  amount,
-  valid,
-  delay,
-}: {
-  member: string;
-  amount: number;
-  valid: boolean;
-  delay: number;
-}) {
-  return (
-    <div
-      style={{
-        background: valid ? "var(--surface-2)" : "var(--surface)",
-        border: `1px solid ${valid ? "var(--border-lit)" : "var(--border)"}`,
-        padding: "16px 18px",
-        animation: `card-reveal 0.5s cubic-bezier(0.16,1,0.3,1) ${delay}ms both`,
-      }}
-    >
-      <div
-        className="mono"
-        style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 8, letterSpacing: "0.1em" }}
-      >
-        {shortenAddress(member, 5)}
-      </div>
-      {valid ? (
-        <div className="mono" style={{ fontSize: 20, color: "var(--text-2)" }}>
-          {amount.toLocaleString()}
-          <span style={{ fontSize: 11, marginLeft: 6, color: "var(--text-3)" }}>L</span>
-        </div>
-      ) : (
-        <div className="mono" style={{ fontSize: 12, color: "var(--text-3)", letterSpacing: "0.1em" }}>
-          Invalid reveal
-        </div>
-      )}
-    </div>
-  );
+function Mono({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <span className="mono" style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", ...style }}>{children}</span>;
 }
 
 export function ConvergenceReveal({ room }: Props) {
-  const winner = room.resolvedSplit.find((s) => s.shareBps === 10_000);
-  const winnerReveal = winner
-    ? room.reveals.find((r) => r.member.toBase58() === winner.member.toBase58())
-    : null;
+  const winners = room.resolvedSplit.filter(s => s.shareBps > 0);
+  const losers  = room.resolvedSplit.filter(s => s.shareBps === 0);
+  const isTie   = winners.length > 1;
+
+  const pct = useCountUp(winners.length > 0 ? Math.round(winners[0].shareBps / 100) : 0, 1200);
+
+  if (winners.length === 0) {
+    return (
+      <div style={{ padding: "24px 0" }}>
+        <Mono style={{ color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 10 }}>Convergence result</Mono>
+        <div style={{
+          background: "rgba(217,80,80,0.05)", border: "1px solid rgba(217,80,80,0.2)",
+          borderLeft: "3px solid #D95050", borderRadius: 12, padding: "20px 22px",
+        }}>
+          <p style={{ fontSize: 14, color: "#D95050", fontWeight: 500 }}>No valid proposals</p>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 6, lineHeight: 1.6 }}>
+            Every commitment was either not revealed or failed verification. No convergence possible.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {winner && winnerReveal && (
-        <WinnerCard
-          member={winner.member.toBase58()}
-          amount={winnerReveal.amount.toNumber()}
-        />
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <Mono style={{ color: "rgba(255,255,255,0.3)", display: "block" }}>Convergence result</Mono>
 
-      {room.reveals.length > 0 && (
+      {/* Winner block */}
+      <div style={{
+        background: "rgba(201,164,74,0.04)", border: "1px solid rgba(201,164,74,0.25)",
+        borderLeft: "3px solid #C9A44A", borderRadius: 12, padding: "24px 22px",
+        position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at top left, rgba(201,164,74,0.06), transparent 60%)", pointerEvents: "none" }} />
+        <Mono style={{ color: "#C9A44A", display: "block", marginBottom: 16 }}>
+          {isTie ? "Tied — equal split" : "Highest proposal wins"}
+        </Mono>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {winners.map((w) => (
+            <div key={w.member.toBase58()} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C9A44A", flexShrink: 0 }} />
+                <span className="mono" style={{ fontSize: 12, color: "#fff", letterSpacing: "0.08em" }}>
+                  {shortenAddress(w.member.toBase58(), 6)}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  background: "rgba(201,164,74,0.12)", border: "1px solid rgba(201,164,74,0.3)",
+                  borderRadius: 4, padding: "3px 10px",
+                }}>
+                  <span className="mono" style={{ fontSize: 11, color: "#C9A44A" }}>
+                    {isTie ? `${Math.round(w.shareBps / 100)}%` : `${pct}%`}
+                  </span>
+                </div>
+                <span className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>◉ Winner</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ marginTop: 14, fontSize: 11, color: "rgba(255,255,255,0.3)", lineHeight: 1.6 }}>
+          Proposal amount sealed for privacy — only the outcome is committed on-chain.
+        </p>
+      </div>
+
+      {/* Losers / full split */}
+      {losers.length > 0 && (
         <div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 10,
-              letterSpacing: "0.18em",
-              color: "var(--text-3)",
-              textTransform: "uppercase",
-              marginBottom: 12,
-            }}
-          >
-            All proposals
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-              gap: 1,
-              background: "var(--border)",
-            }}
-          >
-            {room.reveals.map((r, i) => (
-              <RevealedCard
-                key={r.member.toBase58()}
-                member={r.member.toBase58()}
-                amount={r.amount.toNumber()}
-                valid={r.valid}
-                delay={i * 120}
-              />
+          <Mono style={{ color: "rgba(255,255,255,0.25)", display: "block", marginBottom: 10 }}>Other participants</Mono>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {losers.map((s) => (
+              <div key={s.member.toBase58()} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 14px", background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8,
+              }}>
+                <span className="mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                  {shortenAddress(s.member.toBase58(), 6)}
+                </span>
+                <span className="mono" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>0%</span>
+              </div>
             ))}
           </div>
         </div>

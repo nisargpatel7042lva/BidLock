@@ -11,6 +11,11 @@ const ER_ENDPOINT =
 const ROUTER_ENDPOINT =
   process.env.NEXT_PUBLIC_ROUTER_ENDPOINT ?? "https://devnet-router.magicblock.app/";
 
+/** True when the app is pointed at a local test-validator. */
+export const IS_LOCALNET =
+  (process.env.NEXT_PUBLIC_RPC_ENDPOINT ?? "").includes("127.0.0.1") ||
+  (process.env.NEXT_PUBLIC_RPC_ENDPOINT ?? "").includes("localhost");
+
 function makeProgram(connection: Connection, wallet: any): Program<any> | null {
   if (!wallet.publicKey || !wallet.signTransaction) return null;
   const provider = new AnchorProvider(

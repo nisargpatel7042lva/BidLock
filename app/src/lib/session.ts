@@ -5,14 +5,20 @@ import { Keypair } from "@solana/web3.js";
 const PREFIX = "bl_sk_";
 const PROPOSAL_PREFIX = "bl_proposal_";
 
+/** Returns the stored session keypair, or null if none has been created yet. */
+export function getSessionKey(roomKey: string): Keypair | null {
+  if (typeof window === "undefined") return null;
+  const stored = localStorage.getItem(PREFIX + roomKey);
+  if (!stored) return null;
+  try { return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(stored))); }
+  catch { return null; }
+}
+
+/** Returns the stored keypair or creates and persists a new one. */
 export function getOrCreateSessionKey(roomKey: string): Keypair {
   if (typeof window === "undefined") return Keypair.generate();
-  const stored = localStorage.getItem(PREFIX + roomKey);
-  if (stored) {
-    try {
-      return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(stored)));
-    } catch { /* fallthrough */ }
-  }
+  const existing = getSessionKey(roomKey);
+  if (existing) return existing;
   const kp = Keypair.generate();
   localStorage.setItem(PREFIX + roomKey, JSON.stringify(Array.from(kp.secretKey)));
   return kp;

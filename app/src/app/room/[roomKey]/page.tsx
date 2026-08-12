@@ -7,9 +7,9 @@ import dynamic from "next/dynamic";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
-import { useProgram, useERProgram, getDelegationStatus, makeERProgramAtFqdn } from "@/lib/program";
+import { useProgram, useERProgram, getDelegationStatus, makeERProgramAtFqdn, IS_LOCALNET } from "@/lib/program";
 import { sessionPda, shortenAddress } from "@/lib/pda";
-import { getOrCreateSessionKey, storeProposal, getProposal } from "@/lib/session";
+import { getOrCreateSessionKey, getSessionKey, storeProposal, getProposal } from "@/lib/session";
 import { computeCommitment, randomSalt } from "@/lib/commitment";
 import { getRoomStatus, type RoomAccount } from "@/lib/bidlock_types";
 import { friendlyError } from "@/lib/errors";
@@ -83,8 +83,9 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
   const [actionMsg, setActionMsg]     = useState("");
   const [actionErr, setActionErr]     = useState("");
   const [actionBusy, setActionBusy]   = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
-  const [sessionBusy, setSessionBusy]   = useState(false);
+  const [sessionReady, setSessionReady]       = useState(false);
+  const [sessionMismatch, setSessionMismatch] = useState(false);
+  const [sessionBusy, setSessionBusy]         = useState(false);
   const [copied, setCopied]           = useState(false);
   const [proposalAmt, setProposalAmt] = useState("");
   const [sealBusy, setSealBusy]       = useState(false);
@@ -115,35 +116,46 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
     return () => clearInterval(id);
   }, [fetchRoom]);
 
-  /* ── Check if session already exists (silent, no wallet prompt) ── */
+  /* ── Check if session already exists and keypair matches local storage ── */
   useEffect(() => {
-    if (!connected || !publicKey || !room || !program || sessionReady) return;
+    if (!connected || !publicKey || !room || !program || sessionReady || sessionMismatch) return;
     const isMember = room.members.some(m => m.toBase58() === publicKey.toBase58());
     if (!isMember) return;
 
     const sessionPdaKey = sessionPda(roomPubkey!, publicKey);
     (program as any).account.roomSession.fetch(sessionPdaKey)
-      .then(() => setSessionReady(true))
-      .catch(() => { /* not yet created — user clicks to create */ });
-  }, [connected, publicKey, room, program, sessionReady, roomPubkey]);
+      .then((onChainSession: any) => {
+        const localKp = getSessionKey(roomKey);
+        if (localKp && onChainSession.sessionKey.toBase58() === localKp.publicKey.toBase58()) {
+          setSessionReady(true);
+        } else {
+          // PDA exists but local keypair is different — different device registered it
+          setSessionMismatch(true);
+        }
+      })
+      .catch(() => { /* session PDA not yet created — user clicks to create */ });
+  }, [connected, publicKey, room, program, sessionReady, sessionMismatch, roomPubkey, roomKey]);
 
-  /* ── Explicit session creation (user clicks, gets one wallet prompt) */
+  /* ── Explicit session creation (user clicks, gets one wallet prompt) ── */
   const handleSetupSession = useCallback(async () => {
     if (!program || !publicKey || !roomPubkey) return;
     setSessionBusy(true);
     setActionErr("");
     try {
-      const sessionKp    = getOrCreateSessionKey(roomKey);
-      const validUntil   = new BN(Math.floor(Date.now() / 1000) + 7 * 24 * 3600);
+      const sessionKp  = getOrCreateSessionKey(roomKey);
+      const validUntil = new BN(Math.floor(Date.now() / 1000) + 7 * 24 * 3600);
       await (program as any).methods
         .createSession(sessionKp.publicKey, validUntil)
         .accounts({ member: publicKey, room: roomPubkey })
         .rpc({ commitment: "confirmed", skipPreflight: true });
       setSessionReady(true);
+      setSessionMismatch(false);
     } catch (e: any) {
-      // If it already exists (race), treat as success
-      if (friendlyError(e).includes("already")) {
+      const msg = String((e as any)?.message ?? e);
+      // Anchor throws "already in use" when init account already exists
+      if (msg.includes("already in use") || msg.includes("already been processed") || msg.includes("0x0")) {
         setSessionReady(true);
+        setSessionMismatch(false);
       } else {
         setActionErr(friendlyError(e));
       }
@@ -151,6 +163,24 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
       setSessionBusy(false);
     }
   }, [program, publicKey, roomPubkey, roomKey]);
+
+  /* ── Direct resolve (localnet only — skips ER delegation) ────────── */
+  const handleDirectResolve = useCallback(async () => {
+    if (!program || !publicKey || !roomPubkey) return;
+    setActionBusy(true); setActionErr("");
+    try {
+      await (program as any).methods
+        .resolveRoom()
+        .accounts({ room: roomPubkey })
+        .rpc({ commitment: "confirmed", skipPreflight: true });
+      setActionMsg("Room resolved on-chain.");
+      await fetchRoom();
+    } catch (e: any) {
+      setActionErr(friendlyError(e));
+    } finally {
+      setActionBusy(false);
+    }
+  }, [program, publicKey, roomPubkey, fetchRoom]);
 
   /* ── Open submission (creator, status === "created") ───────────── */
   const handleOpenSubmission = useCallback(async () => {
@@ -462,6 +492,26 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
                       </div>
                     </div>
                   </ActionCard>
+                ) : sessionMismatch ? (
+                  <ActionCard accent="rgba(217,80,80,0.3)" borderColor="rgba(217,80,80,0.2)">
+                    <Mono style={{ color: "#D95050", display: "block", marginBottom: 10 }}>Session key mismatch</Mono>
+                    <p style={{ fontSize: 14, color: "#fff", fontWeight: 500, marginBottom: 8 }}>Different device detected</p>
+                    <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.7, marginBottom: 16 }}>
+                      A session key for this room was registered from a different browser or device. Open this room on the same browser you used to authorize your session key, or ask the creator to invite a fresh wallet address.
+                    </p>
+                    <button
+                      onClick={handleSetupSession}
+                      disabled={sessionBusy}
+                      style={{
+                        padding: "10px 22px", background: "rgba(217,80,80,0.15)",
+                        color: "#D95050", border: "1px solid rgba(217,80,80,0.3)", borderRadius: 8,
+                        fontSize: 12, fontWeight: 600, cursor: sessionBusy ? "not-allowed" : "pointer",
+                        fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8,
+                      }}>
+                      {sessionBusy ? <><div className="spinner" style={{ borderTopColor: "#D95050" }} /> Retrying…</> : "Re-register Session Key →"}
+                    </button>
+                    {actionErr && <ErrMsg msg={actionErr} />}
+                  </ActionCard>
                 ) : !sessionReady ? (
                   /* Session not set up yet */
                   <ActionCard accent="#C9A44A">
@@ -586,6 +636,25 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
                     <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>Every commitment hash failed verification. No valid proposals remain — convergence not possible.</p>
                   </ActionCard>
                 ) : isCreator ? (
+                  IS_LOCALNET ? (
+                  <ActionCard accent="#C9A44A">
+                    <Mono style={{ color: "#C9A44A", display: "block", marginBottom: 10 }}>Creator action — resolve room</Mono>
+                    <p style={{ fontSize: 15, color: "#fff", fontWeight: 500, marginBottom: 8 }}>All windows have closed</p>
+                    <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.7, marginBottom: 20 }}>
+                      Compute convergence and write the final result on-chain.
+                    </p>
+                    <button onClick={handleDirectResolve} disabled={actionBusy}
+                      style={{
+                        padding: "12px 28px", background: "#C9A44A",
+                        color: "#000", border: "none", borderRadius: 8,
+                        fontSize: 13, fontWeight: 600, cursor: actionBusy ? "not-allowed" : "pointer",
+                        fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8,
+                      }}>
+                      {actionBusy ? <><div className="spinner" style={{ borderTopColor: "#000" }} /> Resolving…</> : "Resolve Room →"}
+                    </button>
+                    {actionErr && <ErrMsg msg={actionErr} />}
+                  </ActionCard>
+                  ) : (
                   <ActionCard accent="rgba(255,255,255,0.08)">
                     <Mono style={{ color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 10 }}>Creator actions — settlement</Mono>
                     <p style={{ fontSize: 15, color: "#fff", fontWeight: 500, marginBottom: 8 }}>All windows have closed</p>
@@ -614,6 +683,7 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
                     </div>
                     {actionErr && <ErrMsg msg={actionErr} />}
                   </ActionCard>
+                  )
                 ) : (
                   <ActionCard accent="rgba(255,255,255,0.06)">
                     <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
