@@ -245,13 +245,14 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
       const sessionPdaKey = sessionPda(roomPubkey, publicKey);
       storeProposal(roomKey, raw, Array.from(salt));
 
-      // Pick endpoint: ER fqdn if delegated, else ER default (same as localnet RPC)
-      const erDefault = process.env.NEXT_PUBLIC_ER_ENDPOINT ?? "https://devnet.magicblock.app/";
-      let endpoint = erDefault;
+      // Default to base-layer RPC so non-delegated rooms work.
+      // Upgrade to ER fqdn only when the room is confirmed delegated.
+      const baseEndpoint = process.env.NEXT_PUBLIC_RPC_ENDPOINT ?? "https://api.devnet.solana.com";
+      let endpoint = baseEndpoint;
       try {
         const { isDelegated, fqdn } = await getDelegationStatus(roomPubkey);
         if (isDelegated && fqdn) endpoint = fqdn;
-      } catch { /* fall back */ }
+      } catch { /* stay on base layer */ }
 
       const conn = new Connection(endpoint, { commitment: "confirmed", disableRetryOnRateLimit: true });
 

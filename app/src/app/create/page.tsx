@@ -9,7 +9,7 @@ import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { motion } from "framer-motion";
 import { Lock, X, Plus, ArrowRight } from "lucide-react";
-import { useProgram } from "@/lib/program";
+import { useProgram, IS_LOCALNET } from "@/lib/program";
 import { roomPda, shortenAddress } from "@/lib/pda";
 
 const WalletButton = dynamic(
@@ -91,13 +91,20 @@ export default function CreatePage() {
 
       const pda = roomPda(publicKey, roomId);
 
-      // Open the sealing window immediately so members can start sealing.
-      // On localnet this runs directly; on devnet the ER delegate_room flow
-      // fires open_submission as a magic action instead.
-      await p.methods
-        .openSubmission()
-        .accounts({ room: pda })
-        .rpc({ commitment: "confirmed", skipPreflight: true });
+      if (IS_LOCALNET) {
+        // Localnet: MagicBlock delegation program not available, call directly
+        await p.methods
+          .openSubmission()
+          .accounts({ room: pda })
+          .rpc({ commitment: "confirmed", skipPreflight: true });
+      } else {
+        // Devnet: delegate room to ER — magic action fires openSubmission
+        // automatically on the rollup, putting the room in SubmissionOpen state
+        await p.methods
+          .delegateRoom(roomId)
+          .accounts({ payer: publicKey, pda })
+          .rpc({ commitment: "confirmed", skipPreflight: true });
+      }
 
       setRoomAddr(pda.toBase58());
       setStatus("done");
