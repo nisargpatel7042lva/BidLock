@@ -5,7 +5,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { useProgram, useERProgram, getDelegationStatus, makeERProgramAtFqdn, IS_LOCALNET } from "@/lib/program";
 import { sessionPda, shortenAddress } from "@/lib/pda";
@@ -75,7 +75,7 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
   const wallet              = useWallet();
   const { publicKey, connected } = wallet;
   const program             = useProgram();
-  const erProgram           = useERProgram();
+  const erProgram           = useERProgram(); // still used for handleCommit (ER undelegate)
 
   const [room, setRoom]               = useState<RoomAccount | null>(null);
   const [loading, setLoading]         = useState(true);
@@ -138,16 +138,37 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
 
   /* ── Explicit session creation (user clicks, gets one wallet prompt) ── */
   const handleSetupSession = useCallback(async () => {
-    if (!program || !publicKey || !roomPubkey) return;
+    if (!program || !publicKey || !roomPubkey || !wallet.signTransaction) return;
     setSessionBusy(true);
     setActionErr("");
     try {
       const sessionKp  = getOrCreateSessionKey(roomKey);
       const validUntil = new BN(Math.floor(Date.now() / 1000) + 7 * 24 * 3600);
-      await (program as any).methods
+
+      // Build createSession instruction
+      const sessionIx = await (program as any).methods
         .createSession(sessionKp.publicKey, validUntil)
         .accounts({ member: publicKey, room: roomPubkey })
-        .rpc({ commitment: "confirmed", skipPreflight: true });
+        .instruction();
+
+      // Fund session keypair with 0.01 SOL so it can pay tx fees for sealing
+      // (seal txs use session key as fee payer — no wallet popup needed later)
+      const fundIx = SystemProgram.transfer({
+        fromPubkey: publicKey,
+        toPubkey: sessionKp.publicKey,
+        lamports: 10_000_000,
+      });
+
+      const conn = (program as any).provider.connection as Connection;
+      const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+      const tx = new Transaction().add(sessionIx, fundIx);
+      tx.feePayer = publicKey;
+      tx.recentBlockhash = blockhash;
+
+      const signed = await wallet.signTransaction(tx);
+      const sig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: true });
+      await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+
       setSessionReady(true);
       setSessionMismatch(false);
     } catch (e: any) {
@@ -162,7 +183,7 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
     } finally {
       setSessionBusy(false);
     }
-  }, [program, publicKey, roomPubkey, roomKey]);
+  }, [program, publicKey, roomPubkey, roomKey, wallet]);
 
   /* ── Direct resolve (localnet only — skips ER delegation) ────────── */
   const handleDirectResolve = useCallback(async () => {
@@ -202,7 +223,7 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
 
   /* ── Seal proposal ──────────────────────────────────────────────── */
   const handleSeal = useCallback(async () => {
-    if (!publicKey || !room || !roomPubkey) return;
+    if (!publicKey || !room || !roomPubkey || !program) return;
     const raw = proposalAmt.trim();
     if (!raw || Number(raw) <= 0) { setSealErr("Enter a value greater than zero."); return; }
 
@@ -210,37 +231,46 @@ export default function RoomPage({ params }: { params: Promise<{ roomKey: string
     setSealBusy(true);
 
     try {
-      const amount     = BigInt(raw);
-      const salt       = randomSalt();
-      const commitment = await computeCommitment(amount, salt);
-
+      const amount        = BigInt(raw);
+      const salt          = randomSalt();
+      const commitment    = await computeCommitment(amount, salt);
       const sessionKp     = getOrCreateSessionKey(roomKey);
       const sessionPdaKey = sessionPda(roomPubkey, publicKey);
       storeProposal(roomKey, raw, Array.from(salt));
 
-      // Route through MagicBlock ER — session key signs, no wallet popup
-      let submitProgram: any = erProgram;
+      // Pick endpoint: ER fqdn if delegated, else ER default (same as localnet RPC)
+      const erDefault = process.env.NEXT_PUBLIC_ER_ENDPOINT ?? "https://devnet.magicblock.app/";
+      let endpoint = erDefault;
       try {
         const { isDelegated, fqdn } = await getDelegationStatus(roomPubkey);
-        if (isDelegated && fqdn) submitProgram = makeERProgramAtFqdn(fqdn, wallet) ?? erProgram;
-      } catch { /* fall back to erProgram */ }
+        if (isDelegated && fqdn) endpoint = fqdn;
+      } catch { /* fall back */ }
 
-      if (!submitProgram) throw new Error("ER connection unavailable.");
+      const conn = new Connection(endpoint, { commitment: "confirmed", disableRetryOnRateLimit: true });
 
-      await (submitProgram as any).methods
+      // Build tx from IDL — session key is fee payer, NO wallet popup
+      const tx = await (program as any).methods
         .submitBid(Array.from(commitment))
         .accounts({ signer: sessionKp.publicKey, room: roomPubkey, roomSession: sessionPdaKey })
-        .signers([sessionKp])
-        .rpc({ commitment: "confirmed", skipPreflight: true });
+        .transaction();
+
+      const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+      tx.feePayer  = sessionKp.publicKey;
+      tx.recentBlockhash = blockhash;
+      tx.sign(sessionKp);
+
+      const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: true });
+      await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
 
       setSealDone(true);
       await fetchRoom();
     } catch (e: any) {
+      console.error("[BidLock] seal error:", e, "logs:", (e as any)?.logs);
       setSealErr(friendlyError(e));
     } finally {
       setSealBusy(false);
     }
-  }, [publicKey, room, roomPubkey, roomKey, proposalAmt, erProgram, wallet, fetchRoom]);
+  }, [publicKey, room, roomPubkey, roomKey, proposalAmt, program, fetchRoom]);
 
   /* ── Reveal ─────────────────────────────────────────────────────── */
   const handleReveal = useCallback(async () => {

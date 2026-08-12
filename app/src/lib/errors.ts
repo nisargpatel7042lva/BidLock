@@ -24,19 +24,29 @@ const CODE_MAP: Record<string, string> = {
 };
 
 export function friendlyError(e: unknown): string {
+  // Anchor 0.32.1 + @solana/web3.js ≥1.98 wraps transaction errors into
+  // SendTransactionError. The logs array has the real Anchor error code.
+  const logs: string[] = (e as any)?.logs ?? [];
+  const rawFromLogs = logs.join(" ");
+
   const raw = (e as any)?.message ?? String(e);
+  const searchIn = rawFromLogs + " " + raw;
 
   for (const [code, msg] of Object.entries(CODE_MAP)) {
-    if (raw.includes(code)) return msg;
+    if (searchIn.includes(code)) return msg;
   }
 
   // Anchor simulation / RPC-level messages
-  if (raw.includes("does not exist")) return "Program account not found. Make sure the program is deployed on this network.";
-  if (raw.includes("insufficient funds")) return "Insufficient SOL to pay for this transaction.";
-  if (raw.includes("blockhash not found")) return "Transaction expired. Please try again.";
-  if (raw.includes("User rejected")) return "Transaction cancelled.";
-  if (raw.includes("Attempt to load a program")) return "Program not found on this network. Are you on devnet?";
+  if (searchIn.includes("does not exist")) return "Program account not found. Make sure the program is deployed on this network.";
+  if (searchIn.includes("insufficient funds")) return "Insufficient SOL to pay for this transaction.";
+  if (searchIn.includes("blockhash not found")) return "Transaction expired. Please try again.";
+  if (searchIn.includes("User rejected")) return "Transaction cancelled.";
+  if (searchIn.includes("Attempt to load a program")) return "Program not found on this network. Are you on devnet?";
+  if (searchIn.includes("account not found") || searchIn.includes("AccountNotFound")) return "Required account does not exist on this network. Try re-authorizing your session key.";
 
-  // Truncate very long raw messages
+  // Truncate very long raw messages — prefer the first log line for brevity
+  const firstLog = logs.find(l => l.includes("Error") || l.includes("error") || l.includes("failed"));
+  if (firstLog) return firstLog.length > 140 ? firstLog.slice(0, 140) + "…" : firstLog;
+
   return raw.length > 120 ? raw.slice(0, 120) + "…" : raw;
 }
